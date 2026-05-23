@@ -1,0 +1,19 @@
+{
+  "schema": "kidney_meshgen_unity_scene_v0.6",
+  "units": "millimeters",
+  "unityScaleToMeters": 0.001,
+  "visualMesh": "lumen_inner.glb",
+  "collisionMesh": "collision/lumen_collision_proxy.obj",
+  "stoneMesh": "stones/stones.glb",
+  "manifest": "scene_manifest.json",
+  "runtimeScene": "runtime_scene.json",
+  "centerlineGraph": "centerline_graph.json",
+  "waypoints": "waypoints/navigation_waypoints.json",
+  "coveragePoints": "coverage/coverage_points.csv",
+  "sdfGrid": "collision/lumen_sdf_grid.npz",
+  "notes": [
+    "Use lumen_inner.* or a two-sided material for inside-lumen rendering.",
+    "Use the collision proxy or approximate SDF grid for clearance/collision checks.",
+    "Use runtime_scene.json as the single runtime descriptor for Unity/Gym bridge setup."
+  ]
+}

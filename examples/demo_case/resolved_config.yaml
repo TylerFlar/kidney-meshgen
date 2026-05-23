@@ -1,0 +1,122 @@
+seed: 109710
+anatomy_id: demo_case
+side: right
+grid_resolution: 160
+min_grid_axis: 72
+padding_mm: 10.0
+mesh_smoothing_iterations: 10
+mesh_decimation_faces: null
+export_glb: true
+export_obj: true
+export_ply: false
+export_collision_proxy: true
+collision_proxy_faces: 8000
+export_sdf_grid: true
+sdf_grid_resolution: 96
+sdf_min_grid_axis: 44
+coverage_sample_count: 2048
+waypoint_samples_per_edge: 8
+write_unity_support: true
+open_ureter_start: true
+open_ureter_start_offset_mm: 1.2
+calyx_count_min: 7
+calyx_count_max: 13
+pelvis_type: random
+pelvis_radius_x_mm:
+- 7.0
+- 11.5
+pelvis_radius_y_mm:
+- 4.5
+- 8.0
+pelvis_radius_z_mm:
+- 8.5
+- 13.5
+pelvis_noise_mm: 0.25
+surface_noise_mm: 0.08
+ureter_radius_mm:
+- 2.1
+- 3.3
+upj_radius_mm:
+- 2.9
+- 4.1
+infundibulum_radius_mm:
+- 1.45
+- 2.9
+calyx_cup_radius_mm:
+- 2.9
+- 5.4
+lower_pole_angle_degrees:
+- 35.0
+- 75.0
+lower_pole_clean_access: true
+lower_access_trunk_length_mm:
+- 28.0
+- 46.0
+lower_access_curve_mm:
+- 1.5
+- 5.5
+lower_access_radius_mm:
+- 2.3
+- 3.7
+lower_calyx_splay_degrees:
+- -38.0
+- 18.0
+lower_calyx_branch_length_mm:
+- 9.0
+- 20.0
+lower_pole_access: intermediate
+lower_pole_major_length_mm:
+- 20.0
+- 38.0
+lower_pole_iua_degrees:
+- 25.0
+- 62.0
+lower_pole_hub_radius_mm:
+- 2.4
+- 4.2
+lower_pole_minor_branch_length_mm:
+- 8.0
+- 20.0
+lower_pole_fan_y_mm:
+- 5.5
+- 12.0
+lower_pole_fan_angle_degrees:
+- -32.0
+- 28.0
+lower_pole_access_length_mm:
+- 11.0
+- 20.0
+lower_pole_minor_length_mm:
+- 11.0
+- 25.0
+lower_pole_gate_radius_mm:
+- 2.4
+- 4.2
+include_ureter_stub: true
+ureter_stub_length_mm:
+- 90.0
+- 135.0
+ureter_segment_count: 5
+ureter_curve_mm:
+- 2.0
+- 6.5
+branch_sample_attempts: 140
+graph_clean_retry_attempts: 12
+cup_center_clearance_mm: 8.0
+tube_clearance_mm: 1.65
+cup_to_pelvis_clearance_mm: 2.25
+geometry_qa_warn_clearance_mm: 0.0
+stone_count: 3
+stone_radius_mm:
+- 1.5
+- 5.0
+stone_irregularity: 0.22
+scope_outer_diameter_mm: 3.0
+scope_tip_length_mm: 12.0
+scope_fov_degrees: 85.0
+scope_start_region: ureter_stub
+scope_max_deflection_deg: 275.0
+default_camera_rate_hz: 30
+default_control_rate_hz: 15
+camera_path_spacing_mm: 3.5
+coordinate_system: x_lateral_y_ap_z_craniocaudal_mm

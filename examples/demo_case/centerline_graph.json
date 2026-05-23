@@ -1,0 +1,1401 @@
+{
+  "pelvis_type": "divided",
+  "metadata": {
+    "calyx_distribution": {
+      "upper": 1,
+      "middle": 2,
+      "lower": 4
+    },
+    "lower_pole_access_mode": "intermediate",
+    "lower_pole_attachment_nodes": [
+      "lower_access_attach_01",
+      "lower_access_attach_02",
+      "lower_access_attach_03",
+      "lower_access_attach_04"
+    ],
+    "coordinate_notes": "x=lateral, y=anterior/posterior-like, z=cranio-caudal; values are millimeters",
+    "requested_seed": 7,
+    "selected_seed": 109710,
+    "graph_retry_attempts_configured": 12,
+    "graph_retry_offset": 11
+  },
+  "labels": {
+    "0": "background",
+    "1": "renal_pelvis",
+    "2": "ureter_stub",
+    "3": "upj",
+    "4": "major_upper",
+    "5": "major_middle",
+    "6": "major_lower",
+    "7": "lower_pole_access",
+    "8": "calyx_upper_01",
+    "9": "calyx_middle_01",
+    "10": "calyx_middle_02",
+    "11": "calyx_lower_01",
+    "12": "calyx_lower_02",
+    "13": "calyx_lower_03",
+    "14": "calyx_lower_04"
+  },
+  "nodes": [
+    {
+      "id": "pelvis_center",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "kind": "pelvis",
+      "region": "renal_pelvis"
+    },
+    {
+      "id": "upj",
+      "position_mm": [
+        -4.0,
+        0.0,
+        -10.5
+      ],
+      "kind": "junction",
+      "region": "upj"
+    },
+    {
+      "id": "ureter_start",
+      "position_mm": [
+        -3.9784874627864335,
+        0.0,
+        -101.27002013603666
+      ],
+      "kind": "scope_start",
+      "region": "ureter_stub"
+    },
+    {
+      "id": "ureter_mid_01",
+      "position_mm": [
+        -2.502512412635523,
+        0.7243147525903467,
+        -83.11601610882933
+      ],
+      "kind": "ureter",
+      "region": "ureter_stub"
+    },
+    {
+      "id": "ureter_mid_02",
+      "position_mm": [
+        -3.1094907318629597,
+        3.6887299022017244,
+        -64.96201208162199
+      ],
+      "kind": "ureter",
+      "region": "ureter_stub"
+    },
+    {
+      "id": "ureter_mid_03",
+      "position_mm": [
+        -5.451234219233293,
+        3.1828548586463854,
+        -46.808008054414664
+      ],
+      "kind": "ureter",
+      "region": "ureter_stub"
+    },
+    {
+      "id": "ureter_mid_04",
+      "position_mm": [
+        -5.885652797997816,
+        2.2037821806798727,
+        -28.65400402720733
+      ],
+      "kind": "ureter",
+      "region": "ureter_stub"
+    },
+    {
+      "id": "major_upper",
+      "position_mm": [
+        5.8,
+        -0.8052437488463593,
+        9.551945218569372
+      ],
+      "kind": "major_calyx",
+      "region": "major_upper"
+    },
+    {
+      "id": "major_middle",
+      "position_mm": [
+        6.8,
+        -0.36012505650404325,
+        1.0239288630693437
+      ],
+      "kind": "major_calyx",
+      "region": "major_middle"
+    },
+    {
+      "id": "major_lower",
+      "position_mm": [
+        5.8,
+        1.9805802112042854,
+        -10.544712065023157
+      ],
+      "kind": "major_calyx",
+      "region": "major_lower"
+    },
+    {
+      "id": "lower_access_attach_01",
+      "position_mm": [
+        10.36676205286049,
+        2.2348644402513047,
+        -19.855161017873534
+      ],
+      "kind": "lower_access_attachment",
+      "region": "lower_pole_access"
+    },
+    {
+      "id": "lower_access_attach_02",
+      "position_mm": [
+        14.916426515423105,
+        2.3852087514031575,
+        -29.769611766729728
+      ],
+      "kind": "lower_access_attachment",
+      "region": "lower_pole_access"
+    },
+    {
+      "id": "lower_access_attach_03",
+      "position_mm": [
+        19.44899338768784,
+        2.4316131446598437,
+        -40.28806431159174
+      ],
+      "kind": "lower_access_attachment",
+      "region": "lower_pole_access"
+    },
+    {
+      "id": "lower_access_attach_04",
+      "position_mm": [
+        23.964462669654697,
+        2.374077620021364,
+        -51.41051865245957
+      ],
+      "kind": "lower_access_attachment",
+      "region": "lower_pole_access"
+    },
+    {
+      "id": "calyx_upper_01_neck",
+      "position_mm": [
+        12.94197359227835,
+        0.8980011404679282,
+        17.261633768882845
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_upper_01"
+    },
+    {
+      "id": "calyx_upper_01_cup",
+      "position_mm": [
+        16.54445732978847,
+        1.667317974815085,
+        21.5758508257273
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_upper_01"
+    },
+    {
+      "id": "calyx_middle_01_neck",
+      "position_mm": [
+        18.68818909540949,
+        5.729874943495957,
+        1.2314379756086447
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_middle_01"
+    },
+    {
+      "id": "calyx_middle_01_cup",
+      "position_mm": [
+        27.29687775070602,
+        10.139874943495958,
+        1.3817031950336558
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_middle_01"
+    },
+    {
+      "id": "calyx_middle_02_neck",
+      "position_mm": [
+        18.68818909540949,
+        -6.450125056504042,
+        1.2314379756086447
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_middle_02"
+    },
+    {
+      "id": "calyx_middle_02_cup",
+      "position_mm": [
+        27.29687775070602,
+        -10.860125056504042,
+        1.3817031950336558
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_middle_02"
+    },
+    {
+      "id": "calyx_lower_01_neck",
+      "position_mm": [
+        20.480472416345027,
+        3.6174209332471854,
+        -16.470954608873313
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_lower_01"
+    },
+    {
+      "id": "calyx_lower_01_cup",
+      "position_mm": [
+        27.678218715179018,
+        7.1872517936415345,
+        -15.583544102158296
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_lower_01"
+    },
+    {
+      "id": "calyx_lower_02_neck",
+      "position_mm": [
+        27.538098528017763,
+        6.224457047943055,
+        -30.76730162269832
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_lower_02"
+    },
+    {
+      "id": "calyx_lower_02_cup",
+      "position_mm": [
+        35.59434264412786,
+        6.464917730648909,
+        -29.814088783690323
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_lower_02"
+    },
+    {
+      "id": "calyx_lower_03_neck",
+      "position_mm": [
+        27.171589694214518,
+        -2.370213200008653,
+        -43.90232131456957
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_lower_03"
+    },
+    {
+      "id": "calyx_lower_03_cup",
+      "position_mm": [
+        34.400220863991215,
+        -4.231065930680927,
+        -44.49875499944928
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_lower_03"
+    },
+    {
+      "id": "calyx_lower_04_neck",
+      "position_mm": [
+        30.07889827424618,
+        1.2407920818756113,
+        -56.94210235056202
+      ],
+      "kind": "infundibulum",
+      "region": "calyx_lower_04"
+    },
+    {
+      "id": "calyx_lower_04_cup",
+      "position_mm": [
+        33.177607763685344,
+        -0.35420831591789215,
+        -62.786318590442534
+      ],
+      "kind": "calyx_cup",
+      "region": "calyx_lower_04"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_upj_pelvis",
+      "source": "upj",
+      "target": "pelvis_center",
+      "radius0_mm": 3.335081196510441,
+      "radius1_mm": 4.4,
+      "kind": "upj",
+      "region": "upj",
+      "parent_region": "",
+      "length_mm": 11.236102527122116
+    },
+    {
+      "id": "edge_ureter_00",
+      "source": "ureter_start",
+      "target": "ureter_mid_01",
+      "radius0_mm": 2.629709537291992,
+      "radius1_mm": 2.5958113139406205,
+      "kind": "ureter",
+      "region": "ureter_stub",
+      "parent_region": "",
+      "length_mm": 18.2283020720348
+    },
+    {
+      "id": "edge_ureter_01",
+      "source": "ureter_mid_01",
+      "target": "ureter_mid_02",
+      "radius0_mm": 2.5958113139406205,
+      "radius1_mm": 2.5070374868780676,
+      "kind": "ureter",
+      "region": "ureter_stub",
+      "parent_region": "",
+      "length_mm": 18.404457125357375
+    },
+    {
+      "id": "edge_ureter_02",
+      "source": "ureter_mid_02",
+      "target": "ureter_mid_03",
+      "radius0_mm": 2.5070374868780676,
+      "radius1_mm": 2.4760473934125398,
+      "kind": "ureter",
+      "region": "ureter_stub",
+      "parent_region": "",
+      "length_mm": 18.31140448846547
+    },
+    {
+      "id": "edge_ureter_03",
+      "source": "ureter_mid_03",
+      "target": "ureter_mid_04",
+      "radius0_mm": 2.4760473934125398,
+      "radius1_mm": 2.5895024687183374,
+      "kind": "ureter",
+      "region": "ureter_stub",
+      "parent_region": "",
+      "length_mm": 18.18557574095955
+    },
+    {
+      "id": "edge_ureter_04",
+      "source": "ureter_mid_04",
+      "target": "upj",
+      "radius0_mm": 2.5895024687183374,
+      "radius1_mm": 3.335081196510441,
+      "kind": "ureter",
+      "region": "ureter_stub",
+      "parent_region": "",
+      "length_mm": 18.384237938906768
+    },
+    {
+      "id": "edge_pelvis_major_upper",
+      "source": "pelvis_center",
+      "target": "major_upper",
+      "radius0_mm": 3.981501913378993,
+      "radius1_mm": 3.4369756016892086,
+      "kind": "major_calyx",
+      "region": "major_upper",
+      "parent_region": "",
+      "length_mm": 11.203931227636415
+    },
+    {
+      "id": "edge_pelvis_major_middle",
+      "source": "pelvis_center",
+      "target": "major_middle",
+      "radius0_mm": 3.981501913378993,
+      "radius1_mm": 3.3546476176250306,
+      "kind": "major_calyx",
+      "region": "major_middle",
+      "parent_region": "",
+      "length_mm": 6.886081641466975
+    },
+    {
+      "id": "edge_pelvis_major_lower",
+      "source": "pelvis_center",
+      "target": "major_lower",
+      "radius0_mm": 3.981501913378993,
+      "radius1_mm": 3.2684278696030393,
+      "kind": "major_calyx",
+      "region": "major_lower",
+      "parent_region": "",
+      "length_mm": 12.196460572939142
+    },
+    {
+      "id": "edge_lower_access_01",
+      "source": "major_lower",
+      "target": "lower_access_attach_01",
+      "radius0_mm": 3.1060741370785325,
+      "radius1_mm": 2.8470699186116786,
+      "kind": "lower_access",
+      "region": "lower_pole_access",
+      "parent_region": "lower",
+      "length_mm": 10.373255796528941
+    },
+    {
+      "id": "edge_lower_access_02",
+      "source": "lower_access_attach_01",
+      "target": "lower_access_attach_02",
+      "radius0_mm": 2.8470699186116786,
+      "radius1_mm": 2.588065700144825,
+      "kind": "lower_access",
+      "region": "lower_pole_access",
+      "parent_region": "lower",
+      "length_mm": 10.909554701512617
+    },
+    {
+      "id": "edge_lower_access_03",
+      "source": "lower_access_attach_02",
+      "target": "lower_access_attach_03",
+      "radius0_mm": 2.588065700144825,
+      "radius1_mm": 2.3290614816779716,
+      "kind": "lower_access",
+      "region": "lower_pole_access",
+      "parent_region": "lower",
+      "length_mm": 11.45356537318312
+    },
+    {
+      "id": "edge_lower_access_04",
+      "source": "lower_access_attach_03",
+      "target": "lower_access_attach_04",
+      "radius0_mm": 2.3290614816779716,
+      "radius1_mm": 2.0700572632111176,
+      "kind": "lower_access",
+      "region": "lower_pole_access",
+      "parent_region": "lower",
+      "length_mm": 12.004239406879197
+    },
+    {
+      "id": "edge_calyx_upper_01_proximal",
+      "source": "major_upper",
+      "target": "calyx_upper_01_neck",
+      "radius0_mm": 2.3034337093996906,
+      "radius1_mm": 2.804771380738626,
+      "kind": "infundibulum",
+      "region": "calyx_upper_01",
+      "parent_region": "upper",
+      "length_mm": 10.646507760228761
+    },
+    {
+      "id": "edge_calyx_upper_01_distal",
+      "source": "calyx_upper_01_neck",
+      "target": "calyx_upper_01_cup",
+      "radius0_mm": 2.804771380738626,
+      "radius1_mm": 1.68432666415408,
+      "kind": "infundibulum",
+      "region": "calyx_upper_01",
+      "parent_region": "upper",
+      "length_mm": 5.672936301793143
+    },
+    {
+      "id": "edge_calyx_middle_01_proximal",
+      "source": "major_middle",
+      "target": "calyx_middle_01_neck",
+      "radius0_mm": 3.0,
+      "radius1_mm": 2.1,
+      "kind": "infundibulum",
+      "region": "calyx_middle_01",
+      "parent_region": "middle",
+      "length_mm": 13.358899655285983
+    },
+    {
+      "id": "edge_calyx_middle_01_distal",
+      "source": "calyx_middle_01_neck",
+      "target": "calyx_middle_01_cup",
+      "radius0_mm": 2.1,
+      "radius1_mm": 1.8,
+      "kind": "infundibulum",
+      "region": "calyx_middle_01",
+      "parent_region": "middle",
+      "length_mm": 9.673685957276058
+    },
+    {
+      "id": "edge_calyx_middle_02_proximal",
+      "source": "major_middle",
+      "target": "calyx_middle_02_neck",
+      "radius0_mm": 3.0,
+      "radius1_mm": 2.1,
+      "kind": "infundibulum",
+      "region": "calyx_middle_02",
+      "parent_region": "middle",
+      "length_mm": 13.358899655285983
+    },
+    {
+      "id": "edge_calyx_middle_02_distal",
+      "source": "calyx_middle_02_neck",
+      "target": "calyx_middle_02_cup",
+      "radius0_mm": 2.1,
+      "radius1_mm": 1.8,
+      "kind": "infundibulum",
+      "region": "calyx_middle_02",
+      "parent_region": "middle",
+      "length_mm": 9.673685957276058
+    },
+    {
+      "id": "edge_calyx_lower_01_proximal",
+      "source": "lower_access_attach_01",
+      "target": "calyx_lower_01_neck",
+      "radius0_mm": 1.6941202792628263,
+      "radius1_mm": 1.7284761539090334,
+      "kind": "infundibulum",
+      "region": "calyx_lower_01",
+      "parent_region": "lower",
+      "length_mm": 10.754136543279415
+    },
+    {
+      "id": "edge_calyx_lower_01_distal",
+      "source": "calyx_lower_01_neck",
+      "target": "calyx_lower_01_cup",
+      "radius0_mm": 1.7284761539090334,
+      "radius1_mm": 1.901323769299937,
+      "kind": "infundibulum",
+      "region": "calyx_lower_01",
+      "parent_region": "lower",
+      "length_mm": 8.083238309095586
+    },
+    {
+      "id": "edge_calyx_lower_02_proximal",
+      "source": "lower_access_attach_02",
+      "target": "calyx_lower_02_neck",
+      "radius0_mm": 1.3552323459723619,
+      "radius1_mm": 1.2347541145072627,
+      "kind": "infundibulum",
+      "region": "calyx_lower_02",
+      "parent_region": "lower",
+      "length_mm": 13.230336992106528
+    },
+    {
+      "id": "edge_calyx_lower_02_distal",
+      "source": "calyx_lower_02_neck",
+      "target": "calyx_lower_02_cup",
+      "radius0_mm": 1.2347541145072627,
+      "radius1_mm": 1.358229525957989,
+      "kind": "infundibulum",
+      "region": "calyx_lower_02",
+      "parent_region": "lower",
+      "length_mm": 8.116003038117697
+    },
+    {
+      "id": "edge_calyx_lower_03_proximal",
+      "source": "lower_access_attach_03",
+      "target": "calyx_lower_03_neck",
+      "radius0_mm": 1.7137868438136545,
+      "radius1_mm": 1.7771727436420606,
+      "kind": "infundibulum",
+      "region": "calyx_lower_03",
+      "parent_region": "lower",
+      "length_mm": 9.785646817738018
+    },
+    {
+      "id": "edge_calyx_lower_03_distal",
+      "source": "calyx_lower_03_neck",
+      "target": "calyx_lower_03_cup",
+      "radius0_mm": 1.7771727436420606,
+      "radius1_mm": 1.9548900180062667,
+      "kind": "infundibulum",
+      "region": "calyx_lower_03",
+      "parent_region": "lower",
+      "length_mm": 7.4880981974314995
+    },
+    {
+      "id": "edge_calyx_lower_04_proximal",
+      "source": "lower_access_attach_04",
+      "target": "calyx_lower_04_neck",
+      "radius0_mm": 1.9107300354928967,
+      "radius1_mm": 1.6776250994493314,
+      "kind": "infundibulum",
+      "region": "calyx_lower_04",
+      "parent_region": "lower",
+      "length_mm": 8.322804640430954
+    },
+    {
+      "id": "edge_calyx_lower_04_distal",
+      "source": "calyx_lower_04_neck",
+      "target": "calyx_lower_04_cup",
+      "radius0_mm": 1.6776250994493314,
+      "radius1_mm": 1.7780419606798394,
+      "kind": "infundibulum",
+      "region": "calyx_lower_04",
+      "parent_region": "lower",
+      "length_mm": 6.804475749636039
+    }
+  ],
+  "primitives": [
+    {
+      "id": "pelvis_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "renal_pelvis",
+      "label_id": 1,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "radii": [
+        10.477636614155244,
+        6.625876401529332,
+        9.674503734484496
+      ]
+    },
+    {
+      "id": "edge_upj_pelvis",
+      "kind": "tapered_capsule",
+      "label": "upj",
+      "label_id": 3,
+      "p0": [
+        -4.0,
+        0.0,
+        -10.5
+      ],
+      "p1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "r0": 3.335081196510441,
+      "r1": 4.4,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_ureter_00",
+      "kind": "tapered_capsule",
+      "label": "ureter_stub",
+      "label_id": 2,
+      "p0": [
+        -3.9784874627864335,
+        0.0,
+        -101.27002013603666
+      ],
+      "p1": [
+        -2.502512412635523,
+        0.7243147525903467,
+        -83.11601610882933
+      ],
+      "r0": 2.629709537291992,
+      "r1": 2.5958113139406205,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_ureter_01",
+      "kind": "tapered_capsule",
+      "label": "ureter_stub",
+      "label_id": 2,
+      "p0": [
+        -2.502512412635523,
+        0.7243147525903467,
+        -83.11601610882933
+      ],
+      "p1": [
+        -3.1094907318629597,
+        3.6887299022017244,
+        -64.96201208162199
+      ],
+      "r0": 2.5958113139406205,
+      "r1": 2.5070374868780676,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_ureter_02",
+      "kind": "tapered_capsule",
+      "label": "ureter_stub",
+      "label_id": 2,
+      "p0": [
+        -3.1094907318629597,
+        3.6887299022017244,
+        -64.96201208162199
+      ],
+      "p1": [
+        -5.451234219233293,
+        3.1828548586463854,
+        -46.808008054414664
+      ],
+      "r0": 2.5070374868780676,
+      "r1": 2.4760473934125398,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_ureter_03",
+      "kind": "tapered_capsule",
+      "label": "ureter_stub",
+      "label_id": 2,
+      "p0": [
+        -5.451234219233293,
+        3.1828548586463854,
+        -46.808008054414664
+      ],
+      "p1": [
+        -5.885652797997816,
+        2.2037821806798727,
+        -28.65400402720733
+      ],
+      "r0": 2.4760473934125398,
+      "r1": 2.5895024687183374,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_ureter_04",
+      "kind": "tapered_capsule",
+      "label": "ureter_stub",
+      "label_id": 2,
+      "p0": [
+        -5.885652797997816,
+        2.2037821806798727,
+        -28.65400402720733
+      ],
+      "p1": [
+        -4.0,
+        0.0,
+        -10.5
+      ],
+      "r0": 2.5895024687183374,
+      "r1": 3.335081196510441,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_pelvis_major_upper",
+      "kind": "tapered_capsule",
+      "label": "major_upper",
+      "label_id": 4,
+      "p0": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "p1": [
+        5.8,
+        -0.8052437488463593,
+        9.551945218569372
+      ],
+      "r0": 3.981501913378993,
+      "r1": 3.4369756016892086,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_pelvis_major_middle",
+      "kind": "tapered_capsule",
+      "label": "major_middle",
+      "label_id": 5,
+      "p0": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "p1": [
+        6.8,
+        -0.36012505650404325,
+        1.0239288630693437
+      ],
+      "r0": 3.981501913378993,
+      "r1": 3.3546476176250306,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_pelvis_major_lower",
+      "kind": "tapered_capsule",
+      "label": "major_lower",
+      "label_id": 6,
+      "p0": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "p1": [
+        5.8,
+        1.9805802112042854,
+        -10.544712065023157
+      ],
+      "r0": 3.981501913378993,
+      "r1": 3.2684278696030393,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_lower_access_01",
+      "kind": "tapered_capsule",
+      "label": "lower_pole_access",
+      "label_id": 7,
+      "p0": [
+        5.8,
+        1.9805802112042854,
+        -10.544712065023157
+      ],
+      "p1": [
+        10.36676205286049,
+        2.2348644402513047,
+        -19.855161017873534
+      ],
+      "r0": 3.1060741370785325,
+      "r1": 2.8470699186116786,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_lower_access_02",
+      "kind": "tapered_capsule",
+      "label": "lower_pole_access",
+      "label_id": 7,
+      "p0": [
+        10.36676205286049,
+        2.2348644402513047,
+        -19.855161017873534
+      ],
+      "p1": [
+        14.916426515423105,
+        2.3852087514031575,
+        -29.769611766729728
+      ],
+      "r0": 2.8470699186116786,
+      "r1": 2.588065700144825,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_lower_access_03",
+      "kind": "tapered_capsule",
+      "label": "lower_pole_access",
+      "label_id": 7,
+      "p0": [
+        14.916426515423105,
+        2.3852087514031575,
+        -29.769611766729728
+      ],
+      "p1": [
+        19.44899338768784,
+        2.4316131446598437,
+        -40.28806431159174
+      ],
+      "r0": 2.588065700144825,
+      "r1": 2.3290614816779716,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_lower_access_04",
+      "kind": "tapered_capsule",
+      "label": "lower_pole_access",
+      "label_id": 7,
+      "p0": [
+        19.44899338768784,
+        2.4316131446598437,
+        -40.28806431159174
+      ],
+      "p1": [
+        23.964462669654697,
+        2.374077620021364,
+        -51.41051865245957
+      ],
+      "r0": 2.3290614816779716,
+      "r1": 2.0700572632111176,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_upper_01_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_upper_01",
+      "label_id": 8,
+      "p0": [
+        5.8,
+        -0.8052437488463593,
+        9.551945218569372
+      ],
+      "p1": [
+        12.94197359227835,
+        0.8980011404679282,
+        17.261633768882845
+      ],
+      "r0": 2.3034337093996906,
+      "r1": 2.804771380738626,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_upper_01_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_upper_01",
+      "label_id": 8,
+      "p0": [
+        12.94197359227835,
+        0.8980011404679282,
+        17.261633768882845
+      ],
+      "p1": [
+        16.54445732978847,
+        1.667317974815085,
+        21.5758508257273
+      ],
+      "r0": 2.804771380738626,
+      "r1": 1.68432666415408,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_upper_01_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_upper_01",
+      "label_id": 8,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        16.54445732978847,
+        1.667317974815085,
+        21.5758508257273
+      ],
+      "radii": [
+        3.112855441829174,
+        2.869776321574748,
+        2.864695133604978
+      ]
+    },
+    {
+      "id": "edge_calyx_middle_01_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_middle_01",
+      "label_id": 9,
+      "p0": [
+        6.8,
+        -0.36012505650404325,
+        1.0239288630693437
+      ],
+      "p1": [
+        18.68818909540949,
+        5.729874943495957,
+        1.2314379756086447
+      ],
+      "r0": 3.0,
+      "r1": 2.1,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_middle_01_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_middle_01",
+      "label_id": 9,
+      "p0": [
+        18.68818909540949,
+        5.729874943495957,
+        1.2314379756086447
+      ],
+      "p1": [
+        27.29687775070602,
+        10.139874943495958,
+        1.3817031950336558
+      ],
+      "r0": 2.1,
+      "r1": 1.8,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_middle_01_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_middle_01",
+      "label_id": 9,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        27.29687775070602,
+        10.139874943495958,
+        1.3817031950336558
+      ],
+      "radii": [
+        3.312723999105538,
+        3.148785971912437,
+        3.342661596353702
+      ]
+    },
+    {
+      "id": "edge_calyx_middle_02_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_middle_02",
+      "label_id": 10,
+      "p0": [
+        6.8,
+        -0.36012505650404325,
+        1.0239288630693437
+      ],
+      "p1": [
+        18.68818909540949,
+        -6.450125056504042,
+        1.2314379756086447
+      ],
+      "r0": 3.0,
+      "r1": 2.1,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_middle_02_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_middle_02",
+      "label_id": 10,
+      "p0": [
+        18.68818909540949,
+        -6.450125056504042,
+        1.2314379756086447
+      ],
+      "p1": [
+        27.29687775070602,
+        -10.860125056504042,
+        1.3817031950336558
+      ],
+      "r0": 2.1,
+      "r1": 1.8,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_middle_02_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_middle_02",
+      "label_id": 10,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        27.29687775070602,
+        -10.860125056504042,
+        1.3817031950336558
+      ],
+      "radii": [
+        3.0555990416131373,
+        3.054299821066531,
+        2.6309076551197554
+      ]
+    },
+    {
+      "id": "edge_calyx_lower_01_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_01",
+      "label_id": 11,
+      "p0": [
+        10.36676205286049,
+        2.2348644402513047,
+        -19.855161017873534
+      ],
+      "p1": [
+        20.480472416345027,
+        3.6174209332471854,
+        -16.470954608873313
+      ],
+      "r0": 1.6941202792628263,
+      "r1": 1.7284761539090334,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_lower_01_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_01",
+      "label_id": 11,
+      "p0": [
+        20.480472416345027,
+        3.6174209332471854,
+        -16.470954608873313
+      ],
+      "p1": [
+        27.678218715179018,
+        7.1872517936415345,
+        -15.583544102158296
+      ],
+      "r0": 1.7284761539090334,
+      "r1": 1.901323769299937,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_lower_01_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_lower_01",
+      "label_id": 11,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        27.678218715179018,
+        7.1872517936415345,
+        -15.583544102158296
+      ],
+      "radii": [
+        4.980289681559987,
+        4.069692002451727,
+        4.952773196959847
+      ]
+    },
+    {
+      "id": "edge_calyx_lower_02_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_02",
+      "label_id": 12,
+      "p0": [
+        14.916426515423105,
+        2.3852087514031575,
+        -29.769611766729728
+      ],
+      "p1": [
+        27.538098528017763,
+        6.224457047943055,
+        -30.76730162269832
+      ],
+      "r0": 1.3552323459723619,
+      "r1": 1.2347541145072627,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_lower_02_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_02",
+      "label_id": 12,
+      "p0": [
+        27.538098528017763,
+        6.224457047943055,
+        -30.76730162269832
+      ],
+      "p1": [
+        35.59434264412786,
+        6.464917730648909,
+        -29.814088783690323
+      ],
+      "r0": 1.2347541145072627,
+      "r1": 1.358229525957989,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_lower_02_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_lower_02",
+      "label_id": 12,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        35.59434264412786,
+        6.464917730648909,
+        -29.814088783690323
+      ],
+      "radii": [
+        3.366944115217918,
+        2.7248366165751743,
+        3.142656867453466
+      ]
+    },
+    {
+      "id": "edge_calyx_lower_03_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_03",
+      "label_id": 13,
+      "p0": [
+        19.44899338768784,
+        2.4316131446598437,
+        -40.28806431159174
+      ],
+      "p1": [
+        27.171589694214518,
+        -2.370213200008653,
+        -43.90232131456957
+      ],
+      "r0": 1.7137868438136545,
+      "r1": 1.7771727436420606,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_lower_03_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_03",
+      "label_id": 13,
+      "p0": [
+        27.171589694214518,
+        -2.370213200008653,
+        -43.90232131456957
+      ],
+      "p1": [
+        34.400220863991215,
+        -4.231065930680927,
+        -44.49875499944928
+      ],
+      "r0": 1.7771727436420606,
+      "r1": 1.9548900180062667,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_lower_03_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_lower_03",
+      "label_id": 13,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        34.400220863991215,
+        -4.231065930680927,
+        -44.49875499944928
+      ],
+      "radii": [
+        3.5731566714441265,
+        3.0771522936317406,
+        3.4628335972903392
+      ]
+    },
+    {
+      "id": "edge_calyx_lower_04_proximal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_04",
+      "label_id": 14,
+      "p0": [
+        23.964462669654697,
+        2.374077620021364,
+        -51.41051865245957
+      ],
+      "p1": [
+        30.07889827424618,
+        1.2407920818756113,
+        -56.94210235056202
+      ],
+      "r0": 1.9107300354928967,
+      "r1": 1.6776250994493314,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "edge_calyx_lower_04_distal",
+      "kind": "tapered_capsule",
+      "label": "calyx_lower_04",
+      "label_id": 14,
+      "p0": [
+        30.07889827424618,
+        1.2407920818756113,
+        -56.94210235056202
+      ],
+      "p1": [
+        33.177607763685344,
+        -0.35420831591789215,
+        -62.786318590442534
+      ],
+      "r0": 1.6776250994493314,
+      "r1": 1.7780419606798394,
+      "center": null,
+      "radii": null
+    },
+    {
+      "id": "calyx_lower_04_cup_ellipsoid",
+      "kind": "ellipsoid",
+      "label": "calyx_lower_04",
+      "label_id": 14,
+      "p0": null,
+      "p1": null,
+      "r0": null,
+      "r1": null,
+      "center": [
+        33.177607763685344,
+        -0.35420831591789215,
+        -62.786318590442534
+      ],
+      "radii": [
+        5.06671340500227,
+        4.492921104527112,
+        4.115946758697396
+      ]
+    }
+  ],
+  "calyx_targets": [
+    {
+      "id": "calyx_upper_01",
+      "region": "upper",
+      "cup_node": "calyx_upper_01_cup",
+      "center_mm": [
+        16.54445732978847,
+        1.667317974815085,
+        21.5758508257273
+      ],
+      "approx_radius_mm": 3.1852037889429243
+    },
+    {
+      "id": "calyx_middle_01",
+      "region": "middle",
+      "cup_node": "calyx_middle_01_cup",
+      "center_mm": [
+        27.29687775070602,
+        10.139874943495958,
+        1.3817031950336558
+      ],
+      "approx_radius_mm": 3.2
+    },
+    {
+      "id": "calyx_middle_02",
+      "region": "middle",
+      "cup_node": "calyx_middle_02_cup",
+      "center_mm": [
+        27.29687775070602,
+        -10.860125056504042,
+        1.3817031950336558
+      ],
+      "approx_radius_mm": 3.2
+    },
+    {
+      "id": "calyx_lower_01",
+      "region": "lower",
+      "cup_node": "calyx_lower_01_cup",
+      "center_mm": [
+        27.678218715179018,
+        7.1872517936415345,
+        -15.583544102158296
+      ],
+      "approx_radius_mm": 4.702265594623978
+    },
+    {
+      "id": "calyx_lower_02",
+      "region": "lower",
+      "cup_node": "calyx_lower_02_cup",
+      "center_mm": [
+        35.59434264412786,
+        6.464917730648909,
+        -29.814088783690323
+      ],
+      "approx_radius_mm": 3.1453870058358095
+    },
+    {
+      "id": "calyx_lower_03",
+      "region": "lower",
+      "cup_node": "calyx_lower_03_cup",
+      "center_mm": [
+        34.400220863991215,
+        -4.231065930680927,
+        -44.49875499944928
+      ],
+      "approx_radius_mm": 3.67892262447564
+    },
+    {
+      "id": "calyx_lower_04",
+      "region": "lower",
+      "cup_node": "calyx_lower_04_cup",
+      "center_mm": [
+        33.177607763685344,
+        -0.35420831591789215,
+        -62.786318590442534
+      ],
+      "approx_radius_mm": 4.695571804977636
+    }
+  ]
+}
