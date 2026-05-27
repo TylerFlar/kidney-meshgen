@@ -11,7 +11,8 @@ import trimesh
 from .config import GeneratorConfig
 from .exporters import scope_start_pose
 from .graph import AnatomyGraph, Edge, edge_length
-from .mesh import MeshBuildResult, _primitive_bounds, compute_bounds, primitive_sdf
+from .mesh import MeshBuildResult, compute_bounds
+from .sdf import primitive_bounds, primitive_sdf
 from .stones import StoneInfo
 
 
@@ -280,7 +281,7 @@ def write_collision_proxy(out_dir: Path, mesh_result: MeshBuildResult, config: G
         return files
     coll_dir = out_dir / "collision"
     _ensure_dir(coll_dir)
-    mesh = mesh_result.mesh_outer.copy()
+    mesh = mesh_result.mesh_collision_outer.copy()
     target = config.collision_proxy_faces
     if target and 0 < int(target) < len(mesh.faces):
         try:
@@ -333,7 +334,7 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
     union_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") != "subtract"]
     subtract_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") == "subtract"]
     for primitive in union_primitives:
-        mn, mx = _primitive_bounds(primitive)
+        mn, mx = primitive_bounds(primitive)
         if primitive.kind == "ellipsoid":
             margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
         else:
@@ -348,7 +349,7 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
         sdf = primitive_sdf(pts, primitive).astype(np.float32).reshape((ix1 - ix0, iy1 - iy0, iz1 - iz0))
         field[ix0:ix1, iy0:iy1, iz0:iz1] = np.minimum(field[ix0:ix1, iy0:iy1, iz0:iz1], sdf)
     for primitive in subtract_primitives:
-        mn, mx = _primitive_bounds(primitive)
+        mn, mx = primitive_bounds(primitive)
         if primitive.kind == "ellipsoid":
             margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
         else:
@@ -384,7 +385,7 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
         "bounds_max_mm": [float(v) for v in bounds_max],
         "spacing_mm": [float(v) for v in spacing],
         "grid_shape": [int(nx), int(ny), int(nz)],
-        "approximation": "analytic union with subtractive papilla solids before surface smoothing/open-end cut",
+        "approximation": "smooth analytic union with subtractive papilla solids; visual mucosal displacement is not included",
     }
     meta_path = coll_dir / "lumen_sdf_grid.json"
     with open(meta_path, "w", encoding="utf-8") as f:

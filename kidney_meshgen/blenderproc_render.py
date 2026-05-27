@@ -52,7 +52,7 @@ def _add_noise_bump(material, strength: float, distance: float, scale: float, de
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
-def _make_tissue_material(bpy, liquid: str):
+def _make_tissue_material(bpy, liquid: str, config: Dict):
     mat = bpy.data.materials.new("wet_mucosa_procedural")
     mat.use_nodes = True
     mat.diffuse_color = (0.76, 0.25, 0.32, 1.0)
@@ -67,7 +67,13 @@ def _make_tissue_material(bpy, liquid: str):
     _set_principled_input(mat, ["Specular IOR Level", "Specular"], 0.78 if liquid != "off" else 0.48)
     _set_principled_input(mat, ["Coat Weight", "Clearcoat"], 0.35 if liquid != "off" else 0.05)
     _set_principled_input(mat, ["Coat Roughness", "Clearcoat Roughness"], 0.12)
-    _add_noise_bump(mat, strength=0.045, distance=0.55, scale=38.0, detail=10.0)
+    _add_noise_bump(
+        mat,
+        strength=float(config["render_mucosal_bump_strength"]),
+        distance=float(config["render_mucosal_bump_distance_mm"]),
+        scale=float(config["render_mucosal_bump_scale"]),
+        detail=12.0,
+    )
     return mat
 
 
@@ -287,7 +293,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if lumen_path is None or lumen_path.suffix.lower() != ".obj":
         raise RuntimeError("BlenderProc renderer currently expects lumen_inner.obj in the generated case.")
     lumen = _load_obj_assets(bproc, lumen_path)
-    _assign_material(lumen, _make_tissue_material(bpy, args.liquid))
+    _assign_material(lumen, _make_tissue_material(bpy, args.liquid, manifest["config"]))
     _set_category(lumen, 1)
 
     if args.include_stones:

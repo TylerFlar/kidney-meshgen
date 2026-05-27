@@ -443,9 +443,11 @@ def write_manifest(
         ],
         "renderer_notes": {
             "inside_mesh": "Use lumen_inner.* for an endoscopic camera inside the collecting system, or use a two-sided material.",
+            "visual_vs_collision": "The lumen visual mesh includes low-amplitude mucosal folds/noise; collision_lumen and the SDF grid stay smooth.",
             "entry_tube": "The proximal ureter start is open by default so the simulator starts in a true tube rather than against a rounded cap.",
             "anatomy_profile": "Takazawa profile names calyces as T/U/M/L/B with anterior/posterior pairs where applicable.",
             "papilla_fornix": "Minor calyx cups include subtractive papilla solids so the fornix is cup-like rather than a smooth bulb.",
+            "infundibula": "Infundibula include mild non-circular cross sections and local narrowing in the analytic geometry.",
             "lower_pole": "The lower pole includes an explicit major access trunk plus minor-calyx fan-out for a cleaner lower-pole navigation task.",
             "stone_meshes": "Stones are separate meshes to simplify visibility, detection, segmentation, and task scoring.",
             "region_meshes": "Per-label OBJ files are provided under regions/ for semantic materials or calyx coverage.",

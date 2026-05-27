@@ -8,6 +8,11 @@ import numpy as np
 
 from .config import GeneratorConfig
 from .graph import AnatomyGraph, edge_length
+from .sdf import primitive_profile_max_scale
+
+
+def _edge_clearance_radius(edge_id: str, fallback_radius: float, primitive_by_id: Dict[str, object]) -> float:
+    return float(fallback_radius) * primitive_profile_max_scale(primitive_by_id.get(edge_id))
 
 
 def _segment_distance(p1: np.ndarray, q1: np.ndarray, p2: np.ndarray, q2: np.ndarray) -> float:
@@ -66,6 +71,7 @@ def _segment_distance(p1: np.ndarray, q1: np.ndarray, p2: np.ndarray, q2: np.nda
 
 def analyze_geometry_quality(graph: AnatomyGraph, config: GeneratorConfig) -> Dict:
     nodes = graph.node_map()
+    primitive_by_id = {p.id: p for p in graph.primitives}
     warnings: List[str] = []
 
     lower_edges = [e for e in graph.edges if e.region == "lower_pole_access" or e.kind == "lower_access"]
@@ -78,7 +84,6 @@ def analyze_geometry_quality(graph: AnatomyGraph, config: GeneratorConfig) -> Di
     for i, a in enumerate(graph.edges):
         a0 = np.asarray(nodes[a.source].position_mm, dtype=float)
         a1 = np.asarray(nodes[a.target].position_mm, dtype=float)
-        ar = max(float(a.radius0_mm), float(a.radius1_mm))
         for b in graph.edges[i + 1 :]:
             # Edges that directly enter the renal pelvis are expected to blend
             # into a shared chamber, so they should not be treated as accidental
@@ -95,7 +100,8 @@ def analyze_geometry_quality(graph: AnatomyGraph, config: GeneratorConfig) -> Di
                 continue
             b0 = np.asarray(nodes[b.source].position_mm, dtype=float)
             b1 = np.asarray(nodes[b.target].position_mm, dtype=float)
-            br = max(float(b.radius0_mm), float(b.radius1_mm))
+            ar = _edge_clearance_radius(a.id, max(float(a.radius0_mm), float(a.radius1_mm)), primitive_by_id)
+            br = _edge_clearance_radius(b.id, max(float(b.radius0_mm), float(b.radius1_mm)), primitive_by_id)
             clearance = _segment_distance(a0, a1, b0, b1) - (ar + br)
             if clearance < min_seg_clearance:
                 min_seg_clearance = float(clearance)

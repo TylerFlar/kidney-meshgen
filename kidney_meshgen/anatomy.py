@@ -7,6 +7,7 @@ import numpy as np
 
 from .config import GeneratorConfig
 from .graph import AnatomyGraph, Edge, Node, Primitive
+from .sdf import primitive_profile_max_scale
 
 
 def _rand_range(rng: np.random.Generator, span: Tuple[float, float]) -> float:
@@ -24,6 +25,57 @@ def _normalize(v: np.ndarray, fallback: Tuple[float, float, float] = (1.0, 0.0, 
     if n < 1e-8:
         return np.asarray(fallback, dtype=float)
     return v / n
+
+
+def _cross_section_frame(axis: np.ndarray, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    axis = _normalize(axis, (1.0, 0.0, 0.0))
+    reference = np.array([0.0, 0.0, 1.0], dtype=float)
+    if abs(float(np.dot(axis, reference))) > 0.88:
+        reference = np.array([0.0, 1.0, 0.0], dtype=float)
+    u = _normalize(np.cross(axis, reference), (0.0, 1.0, 0.0))
+    v = _normalize(np.cross(axis, u), (0.0, 0.0, 1.0))
+    theta = float(rng.uniform(0.0, 2.0 * np.pi))
+    c = float(np.cos(theta))
+    s = float(np.sin(theta))
+    return _normalize(u * c + v * s), _normalize(-u * s + v * c)
+
+
+def _tube_profile_kwargs(
+    p0: np.ndarray,
+    p1: np.ndarray,
+    kind: str,
+    config: GeneratorConfig,
+    rng: np.random.Generator,
+) -> Dict:
+    """Return optional smooth anatomical tube-profile modifiers.
+
+    These affect the analytic lumen SDF, so they are intentionally low
+    amplitude and represented in clearance/collision outputs rather than as
+    high-frequency render detail.
+    """
+    if kind != "infundibulum":
+        return {}
+
+    oval_lo, oval_hi = tuple(config.infundibulum_cross_section_ovality)
+    narrow_lo, narrow_hi = tuple(config.infundibulum_narrowing_fraction)
+    width_lo, width_hi = tuple(config.infundibulum_narrowing_width)
+    oval0 = float(rng.uniform(max(0.0, oval_lo), max(0.0, oval_hi)))
+    oval1 = float(np.clip(oval0 * rng.uniform(0.72, 1.28), 0.0, max(0.0, oval_hi) * 1.15))
+    u, v = _cross_section_frame(p1 - p0, rng)
+
+    # Preserve approximately similar area while making the minimum axis only
+    # mildly smaller than the nominal edge radius.
+    scale0 = (1.0 + oval0, max(0.72, 1.0 - 0.48 * oval0))
+    scale1 = (1.0 + oval1, max(0.72, 1.0 - 0.48 * oval1))
+    return {
+        "cross_section_u": tuple(float(x) for x in u),
+        "cross_section_v": tuple(float(x) for x in v),
+        "cross_section_scale0": tuple(float(x) for x in scale0),
+        "cross_section_scale1": tuple(float(x) for x in scale1),
+        "narrowing_t": float(rng.uniform(0.34, 0.72)),
+        "narrowing_width": float(rng.uniform(max(0.05, width_lo), max(0.05, width_hi))),
+        "narrowing_fraction": float(rng.uniform(max(0.0, narrow_lo), max(0.0, narrow_hi))),
+    }
 
 
 def _intersect_span(preferred: Tuple[float, float], allowed: Tuple[float, float]) -> Tuple[float, float]:
@@ -523,6 +575,7 @@ def build_anatomy_graph(config: GeneratorConfig) -> AnatomyGraph:
         nmap = node_lookup()
         p0 = np.asarray(nmap[source].position_mm, dtype=float)
         p1 = np.asarray(nmap[target].position_mm, dtype=float)
+        profile_kwargs = _tube_profile_kwargs(p0, p1, kind, config, rng)
         primitives.append(
             Primitive(
                 id=edge_id,
@@ -533,13 +586,14 @@ def build_anatomy_graph(config: GeneratorConfig) -> AnatomyGraph:
                 p1=tuple(p1),
                 r0=float(r0),
                 r1=float(r1),
+                **profile_kwargs,
             )
         )
         segment_geoms.append(
             _SegmentGeom(
                 p0=p0,
                 p1=p1,
-                radius_mm=max(float(r0), float(r1)),
+                radius_mm=max(float(r0), float(r1)) * primitive_profile_max_scale(profile_kwargs),
                 segment_type=kind,
                 source_node=source,
                 target_node=target,
@@ -800,8 +854,9 @@ def build_anatomy_graph(config: GeneratorConfig) -> AnatomyGraph:
                 r_neck = _rand_range(rng, spec.infundibulum_radius_mm)
                 r_cup_tube = max(1.25, min(_rand_range(rng, (1.4, 2.8)), r_neck * 1.18))
             cup_r = _rand_range(rng, spec.cup_radius_mm)
-            prox = (root_pos, neck, max(r_start, r_neck), root_id)
-            dist = (neck, endpoint, max(r_neck, r_cup_tube), root_id)
+            profile_clearance_scale = 1.0 + max(0.0, float(config.infundibulum_cross_section_ovality[1]))
+            prox = (root_pos, neck, max(r_start, r_neck) * profile_clearance_scale, root_id)
+            dist = (neck, endpoint, max(r_neck, r_cup_tube) * profile_clearance_scale, root_id)
 
             if candidate_ok(endpoint, cup_r, prox, dist):
                 clearance = [float(np.linalg.norm(cup.center - endpoint)) - (cup.radius_mm + cup_r) for cup in cup_geoms]
@@ -951,6 +1006,8 @@ def build_anatomy_graph(config: GeneratorConfig) -> AnatomyGraph:
             "Takazawa CT-urography data: 8 calyces most common, 7 second most common.",
             "Lower-pole access spans use published IL/IW/IUA concepts and unfavorable narrow/long/steep thresholds.",
             "Papilla-fornix cups model cup-shaped minor calyces surrounding renal papillae.",
+            "Infundibular profiles include mild non-circular cross sections and local constrictions to reflect reported width/asymmetry variation.",
+            "Visual-only mucosal folds/noise are separated from the smooth collision/SDF layer.",
         ],
         "coordinate_notes": "x=lateral, y=anterior/posterior, z=cranio-caudal; values are millimeters",
     }

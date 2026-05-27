@@ -26,13 +26,15 @@ Unity metadata helpers
 
 This is for AI simulation and research prototyping, not clinical diagnosis, patient-specific surgical planning, or treatment guidance.
 
-## Version 0.7
+## Anatomy model
 
-This release adds the anatomy realism profile:
+The current anatomy realism profile includes:
 
 - Default `takazawa` anatomy profile with Type I single-pelvis and Type II divided-pelvis classes.
 - Top/upper/middle/lower/bottom calyx naming, with upper/middle/lower anterior/posterior pairs.
 - Subtractive papilla solids inside each minor calyx, producing cup-like fornices instead of smooth bulbs.
+- Mild local infundibular narrowing plus non-circular, asymmetric tube cross sections.
+- Visual-only mucosal folds/noise near the pelvis and calyx necks, with a smooth collision proxy/SDF.
 - Region-specific sampled branch length, radius, and angle metadata in each `calyx_targets` entry.
 - Geometry QA distinguishes intended proximal branch-family blending from distal/cup overlap risks.
 
@@ -201,6 +203,8 @@ resolved_config.yaml                  Exact reproducibility config
 
 Use `lumen_inner.*` for the endoscopic camera. The proximal ureter start is **open by default**, so the scope can begin in a tube instead of looking at a rounded cap.
 
+`lumen_inner.*` and `lumen_outer.*` are the visual meshes. They include low-amplitude mucosal folds/noise for rendering. `collision/lumen_collision_proxy.obj` and `collision/lumen_sdf_grid.*` are built from the smooth analytic/collision surface, so visual roughness does not create contact artifacts.
+
 ## Runtime descriptor
 
 `runtime_scene.json` is the file I would load first in a Unity simulator. It points to the visual mesh, collision mesh, approximate SDF grid, stones, waypoints, labels, and task definitions.
@@ -247,6 +251,8 @@ The generator keeps optional export paths narrow and focuses on simulator-ready 
 - **Anatomy realism profile**: default `takazawa` profile emits Type I/II pelvis classes and named T/U/M/L/B calyces.
 - **Anterior/posterior pairs**: upper, middle, and lower levels are generated as A/P pairs when the sampled calyx count allows it.
 - **Papilla/fornix cups**: each minor calyx has a subtractive papilla primitive so cup surfaces are not just smooth bulbs.
+- **Infundibular variation**: minor calyx necks can be locally narrowed, asymmetric, and mildly non-circular.
+- **Render/collision split**: visual meshes get subtle mucosal folds and roughness while collision/SDF assets stay smooth.
 - **Region-specific metadata**: every calyx target records sampled infundibular length, radius, branch angle, cup radii, and papilla geometry.
 - **Longer entry tube**: default ureter length is increased so the scope starts in a realistic approach tube.
 - **Cleaner lower pole**: the lower pole uses an explicit access trunk and minor-calyx fan-out.
@@ -254,6 +260,15 @@ The generator keeps optional export paths narrow and focuses on simulator-ready 
 - **Collision assets**: outputs both a collision proxy mesh and an approximate SDF grid.
 - **Navigation waypoints**: route waypoints include radius and estimated scope clearance.
 - **Lean runtime descriptor**: `runtime_scene.json` replaces BlenderProc/Isaac descriptors.
+
+## Research basis
+
+The default profile is research-informed, not patient-specific. It uses Takazawa-style pelvicalyceal Type I/II branching and calyx naming from CT-urography/3D reconstruction work, lower-pole access parameters based on infundibular length/width/angle literature, and urothelial anatomy for a folded, wet mucosal visual layer.
+
+- Takazawa-style pelvicalyceal classification: <https://www.jstage.jst.go.jp/article/jsejje/28/2/28_331/_article/-char/en>
+- Modified Takazawa / 3D virtual reconstruction context: <https://pmc.ncbi.nlm.nih.gov/articles/PMC8350222/>
+- Lower-pole infundibular angle, length, and width relevance: <https://pmc.ncbi.nlm.nih.gov/articles/PMC11252207/>
+- Renal pelvis/calyx urothelial lining and lamina propria context: <https://basicmedicalkey.com/renal-pelvis-and-ureter-2/>
 
 ## Useful config knobs
 
@@ -270,6 +285,11 @@ branch_sample_attempts: 140
 cup_center_clearance_mm: 8.0
 tube_clearance_mm: 1.65
 scope_outer_diameter_mm: 3.0
+visual_surface_noise_mm: 0.06
+visual_fold_amplitude_mm: 0.18
+visual_fold_band_mm: 7.0
+infundibulum_cross_section_ovality: [0.04, 0.16]
+infundibulum_narrowing_fraction: [0.04, 0.14]
 export_sdf_grid: true
 export_collision_proxy: true
 ```

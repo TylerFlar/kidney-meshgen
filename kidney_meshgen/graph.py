@@ -38,6 +38,15 @@ class Primitive:
     p1: Tuple[float, float, float] | None = None
     r0: float | None = None
     r1: float | None = None
+    # Optional non-circular tube profile for tapered capsules. The u/v vectors
+    # span the cross section; scales are interpolated from p0 to p1.
+    cross_section_u: Tuple[float, float, float] | None = None
+    cross_section_v: Tuple[float, float, float] | None = None
+    cross_section_scale0: Tuple[float, float] | None = None
+    cross_section_scale1: Tuple[float, float] | None = None
+    narrowing_t: float | None = None
+    narrowing_width: float | None = None
+    narrowing_fraction: float | None = None
     # For ellipsoid
     center: Tuple[float, float, float] | None = None
     radii: Tuple[float, float, float] | None = None

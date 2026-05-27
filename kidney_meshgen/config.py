@@ -55,13 +55,22 @@ class GeneratorConfig:
     pelvis_radius_x_mm: Tuple[float, float] = (7.0, 11.5)
     pelvis_radius_y_mm: Tuple[float, float] = (4.5, 8.0)
     pelvis_radius_z_mm: Tuple[float, float] = (8.5, 13.5)
-    pelvis_noise_mm: float = 0.25
-    surface_noise_mm: float = 0.08
+    visual_surface_noise_mm: float = 0.06
+    visual_fold_amplitude_mm: float = 0.18
+    visual_fold_band_mm: float = 7.0
+    visual_fold_wavelength_mm: Tuple[float, float] = (3.5, 6.5)
+    visual_max_displacement_mm: float = 0.34
+    render_mucosal_bump_strength: float = 0.055
+    render_mucosal_bump_distance_mm: float = 0.28
+    render_mucosal_bump_scale: float = 85.0
 
     # Tube dimensions
     ureter_radius_mm: Tuple[float, float] = (2.1, 3.3)
     upj_radius_mm: Tuple[float, float] = (2.9, 4.1)
     infundibulum_radius_mm: Tuple[float, float] = (1.45, 2.9)
+    infundibulum_cross_section_ovality: Tuple[float, float] = (0.04, 0.16)
+    infundibulum_narrowing_fraction: Tuple[float, float] = (0.04, 0.14)
+    infundibulum_narrowing_width: Tuple[float, float] = (0.12, 0.22)
     calyx_cup_radius_mm: Tuple[float, float] = (2.9, 5.4)
     papilla_fornix_enabled: bool = True
     papilla_radius_mm: Tuple[float, float] = (0.9, 1.8)
@@ -77,17 +86,6 @@ class GeneratorConfig:
     lower_calyx_splay_degrees: Tuple[float, float] = (-38.0, 18.0)
     lower_calyx_branch_length_mm: Tuple[float, float] = (9.0, 20.0)
     lower_pole_access: str = "intermediate"  # easy, intermediate, hard, random
-
-    # Compatibility aliases retained for older config files.
-    lower_pole_major_length_mm: Tuple[float, float] = (20.0, 38.0)
-    lower_pole_iua_degrees: Tuple[float, float] = (25.0, 62.0)
-    lower_pole_hub_radius_mm: Tuple[float, float] = (2.4, 4.2)
-    lower_pole_minor_branch_length_mm: Tuple[float, float] = (8.0, 20.0)
-    lower_pole_fan_y_mm: Tuple[float, float] = (5.5, 12.0)
-    lower_pole_fan_angle_degrees: Tuple[float, float] = (-32.0, 28.0)
-    lower_pole_access_length_mm: Tuple[float, float] = (11.0, 20.0)
-    lower_pole_minor_length_mm: Tuple[float, float] = (11.0, 25.0)
-    lower_pole_gate_radius_mm: Tuple[float, float] = (2.4, 4.2)
 
     # Ureter entry tube
     include_ureter_stub: bool = True

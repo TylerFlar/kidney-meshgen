@@ -20,6 +20,8 @@ def test_generate_small_case(tmp_path: Path):
     assert manifest["anatomy_id"] == "test_case"
     assert manifest["schema"] == "kidney_meshgen_mesh_manifest_v0.7"
     assert manifest["mesh_stats"]["vertices"] > 100
+    assert manifest["mesh_stats"]["collision_vertices"] > 100
+    assert manifest["mesh_stats"]["visual_displacement"]["max_abs_mm"] > 0.0
     assert len(manifest["calyx_targets"]) >= cfg.calyx_count_min
     assert manifest["anatomy_metadata"]["anatomy_realism_profile"] == "takazawa"
     assert manifest["anatomy_metadata"]["pelvicalyceal_class"] in {"type_i", "type_ii"}
@@ -64,6 +66,12 @@ def test_takazawa_type_ii_profile_names_pairs_and_papillae():
     quality = analyze_geometry_quality(graph, cfg)
     assert graph.metadata["pelvicalyceal_class"] == "type_ii"
     assert graph.pelvis_type == "divided"
+    infundibula = [
+        p for p in graph.primitives
+        if p.kind == "tapered_capsule" and "calyx_" in p.id and p.operation != "subtract"
+    ]
+    assert any(p.cross_section_scale0 is not None and p.cross_section_scale1 is not None for p in infundibula)
+    assert any(p.narrowing_fraction is not None and p.narrowing_fraction > 0.0 for p in infundibula)
     assert graph.metadata["calyx_distribution"]["top"] == 1
     assert graph.metadata["calyx_distribution"]["bottom"] == 1
     assert {"calyx_upper_anterior", "calyx_upper_posterior"}.issubset({target["id"] for target in graph.calyx_targets})

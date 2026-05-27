@@ -9,6 +9,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
+from .sdf import primitive_sdf
+
 
 @dataclass
 class RenderPathOptions:
@@ -250,34 +252,11 @@ def _resample_samples(samples: List[Dict], options: RenderPathOptions) -> Tuple[
     return frame_samples, effective_step
 
 
-def _primitive_sdf(points: np.ndarray, primitive: Dict) -> np.ndarray:
-    kind = primitive.get("kind")
-    if kind == "ellipsoid":
-        c = np.asarray(primitive["center"], dtype=float)
-        r = np.asarray(primitive["radii"], dtype=float)
-        q = (points - c[None, :]) / np.maximum(r[None, :], 1e-6)
-        return (np.linalg.norm(q, axis=1) - 1.0) * float(np.min(r))
-    if kind == "tapered_capsule":
-        p0 = np.asarray(primitive["p0"], dtype=float)
-        p1 = np.asarray(primitive["p1"], dtype=float)
-        r0 = float(primitive["r0"])
-        r1 = float(primitive["r1"])
-        v = p1 - p0
-        vv = float(np.dot(v, v))
-        if vv < 1e-8:
-            return np.linalg.norm(points - p0[None, :], axis=1) - max(r0, r1)
-        t = np.clip(((points - p0[None, :]) @ v) / vv, 0.0, 1.0)
-        closest = p0[None, :] + t[:, None] * v[None, :]
-        radius = r0 + t * (r1 - r0)
-        return np.linalg.norm(points - closest, axis=1) - radius
-    raise ValueError(f"unsupported primitive kind: {kind!r}")
-
-
 def _union_sdf(points: np.ndarray, primitives: Iterable[Dict]) -> np.ndarray:
     pts = np.asarray(points, dtype=float)
     sdf = np.full(len(pts), np.inf, dtype=float)
     for primitive in primitives:
-        sdf = np.minimum(sdf, _primitive_sdf(pts, primitive))
+        sdf = np.minimum(sdf, primitive_sdf(pts, primitive))
     return sdf
 
 

@@ -28,11 +28,20 @@ type_i_subtype: random
 pelvis_radius_x_mm: [7.0, 11.5]
 pelvis_radius_y_mm: [4.5, 8.0]
 pelvis_radius_z_mm: [8.5, 13.5]
-pelvis_noise_mm: 0.25
-surface_noise_mm: 0.06
+visual_surface_noise_mm: 0.055
+visual_fold_amplitude_mm: 0.18
+visual_fold_band_mm: 7.0
+visual_fold_wavelength_mm: [3.5, 6.5]
+visual_max_displacement_mm: 0.34
+render_mucosal_bump_strength: 0.055
+render_mucosal_bump_distance_mm: 0.28
+render_mucosal_bump_scale: 90.0
 ureter_radius_mm: [2.1, 3.3]
 upj_radius_mm: [2.9, 4.1]
 infundibulum_radius_mm: [1.5, 2.9]
+infundibulum_cross_section_ovality: [0.04, 0.16]
+infundibulum_narrowing_fraction: [0.04, 0.14]
+infundibulum_narrowing_width: [0.12, 0.22]
 calyx_cup_radius_mm: [2.9, 5.4]
 papilla_fornix_enabled: true
 papilla_radius_mm: [0.9, 1.8]
@@ -46,15 +55,6 @@ lower_access_radius_mm: [2.4, 3.8]
 lower_calyx_splay_degrees: [-38.0, 18.0]
 lower_calyx_branch_length_mm: [10.0, 20.0]
 lower_pole_access: intermediate
-lower_pole_major_length_mm: [20.0, 38.0]
-lower_pole_iua_degrees: [25.0, 62.0]
-lower_pole_hub_radius_mm: [2.4, 4.2]
-lower_pole_minor_branch_length_mm: [8.0, 20.0]
-lower_pole_fan_y_mm: [5.5, 12.0]
-lower_pole_fan_angle_degrees: [-32.0, 28.0]
-lower_pole_access_length_mm: [11.0, 20.0]
-lower_pole_minor_length_mm: [11.0, 25.0]
-lower_pole_gate_radius_mm: [2.4, 4.2]
 include_ureter_stub: true
 ureter_stub_length_mm: [95.0, 140.0]
 ureter_segment_count: 6
