@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
 
 from .config import GeneratorConfig
 from .generator import generate_case
+from .render_path import RenderPathOptions, write_blenderproc_camera_plan
 
 
 def _load_config(path: Optional[str]) -> GeneratorConfig:
@@ -73,12 +76,130 @@ def cmd_generate(args: argparse.Namespace) -> None:
     }, indent=2))
 
 
+def _quality_defaults(quality: str) -> dict:
+    presets = {
+        "preview": {"width": 960, "height": 540, "samples": 32, "noise_threshold": 0.04},
+        "balanced": {"width": 1920, "height": 1080, "samples": 128, "noise_threshold": 0.015},
+        "high": {"width": 2560, "height": 1440, "samples": 256, "noise_threshold": 0.008},
+        "cinematic": {"width": 3840, "height": 2160, "samples": 512, "noise_threshold": 0.004},
+    }
+    return dict(presets[quality])
+
+
+def cmd_render_blenderproc(args: argparse.Namespace) -> None:
+    case_dir = Path(args.case_dir)
+    if not (case_dir / "scene_manifest.json").exists():
+        raise SystemExit(f"{case_dir} does not look like a generated kidney-meshgen case; scene_manifest.json is missing.")
+    out_dir = Path(args.out) if args.out else case_dir / "blenderproc_render"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    defaults = _quality_defaults(args.quality)
+    width = int(args.width or defaults["width"])
+    height = int(args.height or defaults["height"])
+    samples = int(args.samples or defaults["samples"])
+    noise_threshold = float(args.noise_threshold if args.noise_threshold is not None else defaults["noise_threshold"])
+
+    path_options = RenderPathOptions(
+        traversal=args.traversal,
+        target_node=args.target_node,
+        fps=float(args.fps),
+        speed_mm_s=float(args.speed),
+        sample_spacing_mm=float(args.sample_spacing),
+        smooth_window_mm=float(args.smooth_window),
+        max_smooth_offset_mm=float(args.max_smooth_offset),
+        lookahead_mm=float(args.lookahead),
+        wall_clearance_mm=float(args.wall_clearance),
+        fov_degrees=float(args.fov),
+        max_frames=args.max_frames,
+    )
+    plan_files = write_blenderproc_camera_plan(case_dir, out_dir, path_options)
+    pose_file = Path(plan_files["camera_poses_json"])
+    if args.plan_only:
+        print(json.dumps({
+            "camera_poses": str(pose_file),
+            "camera_poses_csv": plan_files["camera_poses_csv"],
+            "frame_count": int(plan_files["frame_count"]),
+        }, indent=2))
+        return
+
+    blenderproc = shutil.which(args.blenderproc)
+    if blenderproc is None:
+        raise SystemExit(
+            "Could not find the blenderproc executable. Install it with `uv sync --extra render` "
+            "or `uv pip install blenderproc`, then rerun this command."
+        )
+
+    script = Path(__file__).resolve().with_name("blenderproc_render.py")
+    cmd = [
+        blenderproc,
+        "run",
+        str(script),
+        "--case-dir",
+        str(case_dir),
+        "--pose-file",
+        str(pose_file),
+        "--out",
+        str(out_dir),
+        "--liquid",
+        args.liquid,
+        "--width",
+        str(width),
+        "--height",
+        str(height),
+        "--samples",
+        str(samples),
+        "--noise-threshold",
+        str(noise_threshold),
+        "--denoiser",
+        args.denoiser,
+        "--color-depth",
+        str(args.color_depth),
+        "--light-energy",
+        str(args.light_energy),
+        "--fill-light-energy",
+        str(args.fill_light_energy),
+        "--spot-angle-degrees",
+        str(args.spot_angle),
+        "--clip-start-mm",
+        str(args.clip_start),
+        "--clip-end-mm",
+        str(args.clip_end),
+        "--focus-distance-mm",
+        str(args.focus_distance),
+        "--fstop",
+        str(args.fstop),
+    ]
+    if args.include_stones:
+        cmd.append("--include-stones")
+    if args.cpu:
+        cmd.append("--cpu")
+    if args.cpu_threads is not None:
+        cmd.extend(["--cpu-threads", str(args.cpu_threads)])
+    if args.depth:
+        cmd.append("--enable-depth")
+    if args.depth_of_field:
+        cmd.append("--depth-of-field")
+
+    subprocess.run(cmd, check=True)
+    print(json.dumps({
+        "render_dir": str(out_dir),
+        "rgb_dir": str(out_dir / "rgb"),
+        "camera_poses": str(pose_file),
+        "camera_poses_csv": plan_files["camera_poses_csv"],
+        "frame_count": int(plan_files["frame_count"]),
+        "include_stones": bool(args.include_stones),
+        "resolution": [width, height],
+        "quality": args.quality,
+    }, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kidney-meshgen",
         description="Generate renal collecting-system meshes for real-time ureteroscopy navigation/control simulation.",
     )
-    gen = parser.add_subparsers(dest="command", required=True).add_parser("generate", help="Generate one kidney case.")
+    sub = parser.add_subparsers(dest="command", required=True)
+    gen = sub.add_parser("generate", help="Generate one kidney case.")
     gen.add_argument("--out", type=str, required=True, help="Output directory.")
     gen.add_argument("--config", type=str, help="YAML config file. Defaults to built-in config.")
     gen.add_argument("--seed", type=int, help="Random seed.")
@@ -101,6 +222,44 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--decimate-faces", type=int, help="Optional target face count for visual mesh simplification, if trimesh backend supports it.")
     gen.add_argument("--no-preview", action="store_true", help="Do not create preview_centerline.png.")
     gen.set_defaults(func=cmd_generate)
+
+    render = sub.add_parser("render-blenderproc", help="Render a generated case with BlenderProc.")
+    render.add_argument("--case-dir", type=str, required=True, help="Generated case directory containing scene_manifest.json.")
+    render.add_argument("--out", type=str, help="Render output directory. Defaults to CASE_DIR/blenderproc_render.")
+    render.add_argument("--blenderproc", type=str, default="blenderproc", help="Name or path of the blenderproc executable.")
+    render.add_argument("--plan-only", action="store_true", help="Only write camera_poses.json/csv; do not invoke BlenderProc.")
+    render.add_argument("--include-stones", action="store_true", help="Render stone meshes. Off by default.")
+    render.add_argument("--liquid", choices=["off", "film", "volume"], default="film", help="Wet material/liquid treatment.")
+    render.add_argument("--traversal", choices=["dfs", "pelvis"], default="dfs", help="Camera path traversal when --target-node is not set.")
+    render.add_argument("--target-node", type=str, help="Fly from entry to a specific graph node, then reverse back to entry.")
+    render.add_argument("--fps", type=float, default=30.0, help="Camera frame rate for pose timestamps.")
+    render.add_argument("--speed", type=float, default=18.0, help="Nominal camera speed in millimeters per second.")
+    render.add_argument("--max-frames", type=int, help="Cap frame count by resampling the full path.")
+    render.add_argument("--sample-spacing", type=float, default=1.0, help="Dense centerline sampling spacing in millimeters.")
+    render.add_argument("--smooth-window", type=float, default=3.0, help="Gaussian smoothing window in millimeters.")
+    render.add_argument("--max-smooth-offset", type=float, default=0.75, help="Maximum smoothing displacement from centerline in millimeters.")
+    render.add_argument("--lookahead", type=float, default=6.0, help="Look-ahead distance for camera orientation in millimeters.")
+    render.add_argument("--wall-clearance", type=float, default=0.45, help="Required analytic SDF clearance from the lumen wall in millimeters.")
+    render.add_argument("--fov", type=float, default=85.0, help="Endoscope field of view in degrees.")
+    render.add_argument("--quality", choices=["preview", "balanced", "high", "cinematic"], default="balanced", help="Resolution/sampling preset.")
+    render.add_argument("--width", type=int, help="Override render width.")
+    render.add_argument("--height", type=int, help="Override render height.")
+    render.add_argument("--samples", type=int, help="Override Cycles max samples per pixel.")
+    render.add_argument("--noise-threshold", type=float, help="Override Cycles adaptive sampling noise threshold.")
+    render.add_argument("--denoiser", choices=["OPTIX", "INTEL", "none"], default="OPTIX", help="Cycles denoiser.")
+    render.add_argument("--color-depth", type=int, choices=[8, 16], default=8, help="PNG color depth.")
+    render.add_argument("--depth", action="store_true", help="Also render depth EXR frames.")
+    render.add_argument("--depth-of-field", action="store_true", help="Enable camera depth of field.")
+    render.add_argument("--focus-distance", type=float, default=18.0, help="Depth-of-field focus distance in millimeters.")
+    render.add_argument("--fstop", type=float, default=7.0, help="Depth-of-field f-stop.")
+    render.add_argument("--light-energy", type=float, default=850.0, help="Camera-mounted spot light energy.")
+    render.add_argument("--fill-light-energy", type=float, default=55.0, help="Camera-mounted fill point light energy.")
+    render.add_argument("--spot-angle", type=float, default=92.0, help="Camera-mounted spot angle in degrees.")
+    render.add_argument("--clip-start", type=float, default=0.08, help="Camera near clip in millimeters.")
+    render.add_argument("--clip-end", type=float, default=260.0, help="Camera far clip in millimeters.")
+    render.add_argument("--cpu", action="store_true", help="Force CPU rendering.")
+    render.add_argument("--cpu-threads", type=int, help="CPU thread count to pass to BlenderProc.")
+    render.set_defaults(func=cmd_render_blenderproc)
     return parser
 
 

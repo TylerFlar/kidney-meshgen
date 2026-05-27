@@ -2,7 +2,7 @@
 
 Procedural renal collecting-system mesh generator for **real-time flexible ureteroscopy / RIRS navigation and direct-control simulation**.
 
-This package is intentionally lean. It focuses on the assets needed to build and test a real-time simulator without pulling in BlenderProc, Isaac/Omniverse, USD, or dataset-generation workflows that are not needed yet.
+The core generator is intentionally lean. It focuses on the assets needed to build and test a real-time simulator, while higher-cost offline rendering tools such as BlenderProc stay behind optional extras.
 
 Generated anatomy and runtime assets include:
 
@@ -54,6 +54,86 @@ uv run kidney-meshgen generate \
   --seed 7 \
   --anatomy-id kidney_case \
   --stones 3
+```
+
+## BlenderProc rendering
+
+Install the optional renderer dependency:
+
+```bash
+uv sync --extra render --dev
+```
+
+Render a generated case with the default DFS/backtracking camera path. Stones are **off by default**:
+
+```bash
+uv run kidney-meshgen render-blenderproc \
+  --case-dir output/kidney_case \
+  --out output/kidney_case/blenderproc_render
+```
+
+Turn stones on explicitly:
+
+```bash
+uv run kidney-meshgen render-blenderproc \
+  --case-dir output/kidney_case \
+  --include-stones
+```
+
+Write only the camera plan, without invoking BlenderProc:
+
+```bash
+uv run kidney-meshgen render-blenderproc \
+  --case-dir output/kidney_case \
+  --plan-only
+```
+
+Important render outputs:
+
+```text
+blenderproc_render/rgb/frame_*.png     Rendered RGB image sequence
+blenderproc_render/camera_poses.json   Per-frame camera-to-world matrices and pose metadata
+blenderproc_render/camera_poses.csv    Compact per-frame pose table
+blenderproc_render/render_metadata.json Renderer settings used for the run
+```
+
+The camera path starts at the entry node, performs a deterministic DFS walk over the centerline graph, and backtracks over the same edges. You can instead fly to one node and reverse back:
+
+```bash
+uv run kidney-meshgen render-blenderproc \
+  --case-dir output/kidney_case \
+  --target-node pelvis_center
+```
+
+The path planner smooths the sampled centerline motion, then validates every smoothed camera center against the analytic primitive SDF. If a smoothed point would violate `--wall-clearance`, it is blended back toward the original centerline point. Useful path knobs:
+
+```text
+--speed 18                 Nominal camera speed in mm/s
+--fps 30                   Pose timestamp rate
+--smooth-window 3.0        Motion smoothing window in mm
+--max-smooth-offset 0.75   Maximum displacement away from centerline
+--wall-clearance 0.45      Required lumen SDF clearance in mm
+--max-frames 300           Resample the full path to a smaller image sequence
+```
+
+Renderer quality presets:
+
+```text
+preview    960x540,   32 samples
+balanced   1920x1080, 128 samples
+high       2560x1440, 256 samples
+cinematic  3840x2160, 512 samples
+```
+
+Realism-oriented knobs:
+
+```text
+--quality high             Higher resolution and Cycles samples
+--liquid film              Wet glossy tissue material, default
+--liquid volume            Adds subtle irrigation volume scattering
+--depth-of-field           Optional short-range camera DOF
+--depth                    Also write depth EXR frames
+--denoiser OPTIX|INTEL     Cycles denoising backend
 ```
 
 Higher-resolution preset:
