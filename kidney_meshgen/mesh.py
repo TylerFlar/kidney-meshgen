@@ -99,6 +99,8 @@ def label_vertices(vertices: np.ndarray, graph: AnatomyGraph, batch_size: int = 
         best = np.full(len(pts), np.inf, dtype=np.float32)
         best_label = np.zeros(len(pts), dtype=np.int32)
         for prim in graph.primitives:
+            if getattr(prim, "operation", "union") == "subtract":
+                continue
             d = primitive_sdf(pts, prim).astype(np.float32)
             mask = d < best
             if np.any(mask):
@@ -209,7 +211,10 @@ def build_lumen_mesh(graph: AnatomyGraph, config: GeneratorConfig) -> MeshBuildR
     field = np.full((nx, ny, nz), far_value, dtype=np.float32)
 
     max_spacing = max(spacing)
-    for primitive in graph.primitives:
+    union_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") != "subtract"]
+    subtract_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") == "subtract"]
+
+    for primitive in union_primitives:
         mn, mx = _primitive_bounds(primitive)
         if primitive.kind == "ellipsoid":
             margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
@@ -226,6 +231,24 @@ def build_lumen_mesh(graph: AnatomyGraph, config: GeneratorConfig) -> MeshBuildR
         pts = np.stack((X.ravel(), Y.ravel(), Z.ravel()), axis=1)
         sdf = primitive_sdf(pts, primitive).astype(np.float32).reshape((ix1 - ix0, iy1 - iy0, iz1 - iz0))
         field[ix0:ix1, iy0:iy1, iz0:iz1] = np.minimum(field[ix0:ix1, iy0:iy1, iz0:iz1], sdf)
+
+    for primitive in subtract_primitives:
+        mn, mx = _primitive_bounds(primitive)
+        if primitive.kind == "ellipsoid":
+            margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
+        else:
+            margin = max(float(primitive.r0), float(primitive.r1)) + 3.5 * max_spacing
+
+        ix0, ix1 = _primitive_crop_indices(xs, mn[0], mx[0], margin)
+        iy0, iy1 = _primitive_crop_indices(ys, mn[1], mx[1], margin)
+        iz0, iz1 = _primitive_crop_indices(zs, mn[2], mx[2], margin)
+        if ix1 <= ix0 or iy1 <= iy0 or iz1 <= iz0:
+            continue
+
+        X, Y, Z = np.meshgrid(xs[ix0:ix1], ys[iy0:iy1], zs[iz0:iz1], indexing="ij")
+        pts = np.stack((X.ravel(), Y.ravel(), Z.ravel()), axis=1)
+        sdf = primitive_sdf(pts, primitive).astype(np.float32).reshape((ix1 - ix0, iy1 - iy0, iz1 - iz0))
+        field[ix0:ix1, iy0:iy1, iz0:iz1] = np.maximum(field[ix0:ix1, iy0:iy1, iz0:iz1], -sdf)
 
     field = _add_surface_noise(field, rng, float(config.surface_noise_mm))
 

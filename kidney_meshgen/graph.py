@@ -32,6 +32,7 @@ class Primitive:
     kind: str  # tapered_capsule or ellipsoid
     label: str
     label_id: int
+    operation: str = "union"  # union or subtract; subtract carves solid papillae from the lumen
     # For tapered capsule
     p0: Tuple[float, float, float] | None = None
     p1: Tuple[float, float, float] | None = None

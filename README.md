@@ -9,7 +9,9 @@ Generated anatomy and runtime assets include:
 ```text
 ureter entry tube
 renal pelvis / UPJ
-upper, middle, and lower calyces
+Takazawa-style top, upper, middle, lower, and bottom calyces
+anterior/posterior calyx pairs where applicable
+papilla/fornix cup surface detail
 cleaner lower-pole access trunk
 stones
 visual lumen mesh
@@ -24,15 +26,15 @@ Unity metadata helpers
 
 This is for AI simulation and research prototyping, not clinical diagnosis, patient-specific surgical planning, or treatment guidance.
 
-## Version 0.6
+## Version 0.7
 
-This release completes the project rename to `kidney-meshgen`:
+This release adds the anatomy realism profile:
 
-- Distribution and CLI name: `kidney-meshgen`
-- Python package import: `kidney_meshgen`
-- Generated schemas and Unity helpers use `kidney_meshgen` / `KidneyMeshgen`
-- Project setup uses `uv`, with `uv.lock` committed for reproducible installs
-- Development tooling includes Ruff and pytest through the `dev` dependency group
+- Default `takazawa` anatomy profile with Type I single-pelvis and Type II divided-pelvis classes.
+- Top/upper/middle/lower/bottom calyx naming, with upper/middle/lower anterior/posterior pairs.
+- Subtractive papilla solids inside each minor calyx, producing cup-like fornices instead of smooth bulbs.
+- Region-specific sampled branch length, radius, and angle metadata in each `calyx_targets` entry.
+- Geometry QA distinguishes intended proximal branch-family blending from distal/cup overlap risks.
 
 ## Install
 
@@ -54,6 +56,15 @@ uv run kidney-meshgen generate \
   --seed 7 \
   --anatomy-id kidney_case \
   --stones 3
+```
+
+Force a Takazawa class when you want a controlled cohort:
+
+```bash
+uv run kidney-meshgen generate \
+  --out output/type_ii_case \
+  --pelvicalyceal-class type_ii \
+  --stones 0
 ```
 
 ## BlenderProc rendering
@@ -233,6 +244,10 @@ Metrics:
 The generator keeps optional export paths narrow and focuses on simulator-ready assets:
 
 - **Open ureter entry**: the proximal ureter cap is cut open by default with `open_ureter_start: true`.
+- **Anatomy realism profile**: default `takazawa` profile emits Type I/II pelvis classes and named T/U/M/L/B calyces.
+- **Anterior/posterior pairs**: upper, middle, and lower levels are generated as A/P pairs when the sampled calyx count allows it.
+- **Papilla/fornix cups**: each minor calyx has a subtractive papilla primitive so cup surfaces are not just smooth bulbs.
+- **Region-specific metadata**: every calyx target records sampled infundibular length, radius, branch angle, cup radii, and papilla geometry.
 - **Longer entry tube**: default ureter length is increased so the scope starts in a realistic approach tube.
 - **Cleaner lower pole**: the lower pole uses an explicit access trunk and minor-calyx fan-out.
 - **Stronger branch clearance**: retry sampling and increased clearances reduce accidental chamber fusion.
@@ -243,6 +258,10 @@ The generator keeps optional export paths narrow and focuses on simulator-ready 
 ## Useful config knobs
 
 ```yaml
+anatomy_realism_profile: takazawa
+pelvicalyceal_class: random      # random, type_i, type_ii
+type_i_subtype: random           # random, ia, ib, ic
+papilla_fornix_enabled: true
 open_ureter_start: true
 open_ureter_start_offset_mm: 1.2
 lower_pole_access: intermediate   # easy, intermediate, hard, random
@@ -264,6 +283,7 @@ cfg = GeneratorConfig(
     seed=42,
     anatomy_id="kidney_042",
     stone_count=4,
+    pelvicalyceal_class="type_i",
     lower_pole_access="intermediate",
 )
 manifest = generate_case(cfg, "output/kidney_042")
@@ -289,4 +309,4 @@ uv run ruff check .
 
 ## Limitations
 
-The generator does not model tissue deformation, real ureteroscope shaft mechanics, irrigation fluid physics, blood/dust/bubbles, or clinically validated population distributions. It is meant to give you a clean procedural environment that can later be connected to better deformation, instrument-control, and rendering modules.
+The generator does not model tissue deformation, real ureteroscope shaft mechanics, irrigation fluid physics, blood/dust/bubbles, or clinically validated patient-specific population distributions. The realism profile is research-informed anatomy for simulation, not a diagnostic or surgical-planning model.

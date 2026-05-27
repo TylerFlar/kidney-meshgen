@@ -361,7 +361,7 @@ def write_camera_paths(out_dir: Path, graph: AnatomyGraph, config: GeneratorConf
         )
 
     data = {
-        "schema": "kidney_meshgen_camera_paths_v0.6",
+        "schema": "kidney_meshgen_camera_paths_v0.7",
         "units": "millimeters",
         "spacing_mm": spacing,
         "start_node": start,
@@ -384,7 +384,7 @@ def write_manifest(
     file_map: Dict[str, str],
 ) -> Dict[str, str]:
     manifest = {
-        "schema": "kidney_meshgen_mesh_manifest_v0.6",
+        "schema": "kidney_meshgen_mesh_manifest_v0.7",
         "anatomy_id": config.anatomy_id,
         "seed": config.seed,
         "units": "millimeters",
@@ -444,6 +444,8 @@ def write_manifest(
         "renderer_notes": {
             "inside_mesh": "Use lumen_inner.* for an endoscopic camera inside the collecting system, or use a two-sided material.",
             "entry_tube": "The proximal ureter start is open by default so the simulator starts in a true tube rather than against a rounded cap.",
+            "anatomy_profile": "Takazawa profile names calyces as T/U/M/L/B with anterior/posterior pairs where applicable.",
+            "papilla_fornix": "Minor calyx cups include subtractive papilla solids so the fornix is cup-like rather than a smooth bulb.",
             "lower_pole": "The lower pole includes an explicit major access trunk plus minor-calyx fan-out for a cleaner lower-pole navigation task.",
             "stone_meshes": "Stones are separate meshes to simplify visibility, detection, segmentation, and task scoring.",
             "region_meshes": "Per-label OBJ files are provided under regions/ for semantic materials or calyx coverage.",

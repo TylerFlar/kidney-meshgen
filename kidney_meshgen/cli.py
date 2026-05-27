@@ -31,8 +31,14 @@ def _apply_common_overrides(cfg: GeneratorConfig, args: argparse.Namespace) -> G
         cfg.min_grid_axis = int(args.min_grid_axis)
     if args.stones is not None:
         cfg.stone_count = int(args.stones)
+    if args.anatomy_profile is not None:
+        cfg.anatomy_realism_profile = args.anatomy_profile
     if args.pelvis_type is not None:
         cfg.pelvis_type = args.pelvis_type
+    if args.pelvicalyceal_class is not None:
+        cfg.pelvicalyceal_class = args.pelvicalyceal_class
+    if args.type_i_subtype is not None:
+        cfg.type_i_subtype = args.type_i_subtype
     if args.lower_pole_access is not None:
         cfg.lower_pole_access = args.lower_pole_access
     if args.ureter_segments is not None:
@@ -49,6 +55,8 @@ def _apply_common_overrides(cfg: GeneratorConfig, args: argparse.Namespace) -> G
         cfg.mesh_decimation_faces = int(args.decimate_faces)
     if args.closed_ureter_start:
         cfg.open_ureter_start = False
+    if args.no_papilla_fornix:
+        cfg.papilla_fornix_enabled = False
     if args.no_collision_proxy:
         cfg.export_collision_proxy = False
     if args.no_sdf_grid:
@@ -71,6 +79,9 @@ def cmd_generate(args: argparse.Namespace) -> None:
         "faces": manifest["mesh_stats"]["faces"],
         "watertight": manifest["mesh_stats"].get("is_watertight"),
         "stones": len(manifest["stones"]),
+        "anatomy_profile": manifest.get("anatomy_metadata", {}).get("anatomy_realism_profile"),
+        "pelvicalyceal_class": manifest.get("anatomy_metadata", {}).get("pelvicalyceal_class"),
+        "takazawa_type": manifest.get("anatomy_metadata", {}).get("takazawa_type"),
         "lower_pole_access": manifest.get("anatomy_metadata", {}).get("lower_pole_access_mode"),
         "open_ureter_start": manifest.get("config", {}).get("open_ureter_start"),
     }, indent=2))
@@ -208,12 +219,16 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--grid", type=int, help="Target sample count along the longest marching-cubes axis. 192-240 is a good high-resolution range.")
     gen.add_argument("--min-grid-axis", type=int, help="Minimum sample count along shorter axes.")
     gen.add_argument("--stones", type=int, help="Number of stones to place.")
-    gen.add_argument("--pelvis-type", choices=["random", "single", "divided"], help="Pelvis morphology family.")
+    gen.add_argument("--anatomy-profile", choices=["takazawa", "basic", "legacy"], help="Anatomy realism profile.")
+    gen.add_argument("--pelvis-type", choices=["random", "single", "divided", "type_i", "type_ii"], help="Pelvis morphology family.")
+    gen.add_argument("--pelvicalyceal-class", choices=["random", "type_i", "type_ii"], help="Takazawa Type I/II selector.")
+    gen.add_argument("--type-i-subtype", choices=["random", "ia", "ib", "ic"], help="Type I pelvis width subtype.")
     gen.add_argument("--lower-pole-access", choices=["random", "easy", "intermediate", "hard"], help="Lower-pole access difficulty model.")
     gen.add_argument("--ureter-segments", type=int, help="Number of polyline segments in the entry ureter tube.")
     gen.add_argument("--graph-retries", type=int, help="How many graph candidates to try before meshing; higher values reduce accidental chamber merges.")
     gen.add_argument("--scope-diameter", type=float, help="Scope outer diameter in mm for clearance estimates.")
     gen.add_argument("--closed-ureter-start", action="store_true", help="Keep the proximal ureter cap closed instead of cutting an open entry.")
+    gen.add_argument("--no-papilla-fornix", action="store_true", help="Disable subtractive papilla/fornix cup carving.")
     gen.add_argument("--no-collision-proxy", action="store_true", help="Skip collision/lumen_collision_proxy.obj.")
     gen.add_argument("--no-sdf-grid", action="store_true", help="Skip collision/lumen_sdf_grid.npz.")
     gen.add_argument("--no-unity-support", action="store_true", help="Skip copying Unity helper scripts/config into each generated case.")

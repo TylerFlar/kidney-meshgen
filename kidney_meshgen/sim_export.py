@@ -210,7 +210,7 @@ def write_waypoint_files(out_dir: Path, graph: AnatomyGraph, config: GeneratorCo
         )
 
     waypoint_data = {
-        "schema": "kidney_meshgen_navigation_waypoints_v0.6",
+        "schema": "kidney_meshgen_navigation_waypoints_v0.7",
         "units": "millimeters",
         "start_node": start,
         "scope_outer_diameter_mm": float(config.scope_outer_diameter_mm),
@@ -330,7 +330,9 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
     far_value = float(np.linalg.norm(bounds_max - bounds_min) + 10.0)
     field = np.full((nx, ny, nz), far_value, dtype=np.float32)
     max_spacing = float(np.max(spacing))
-    for primitive in graph.primitives:
+    union_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") != "subtract"]
+    subtract_primitives = [p for p in graph.primitives if getattr(p, "operation", "union") == "subtract"]
+    for primitive in union_primitives:
         mn, mx = _primitive_bounds(primitive)
         if primitive.kind == "ellipsoid":
             margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
@@ -345,6 +347,21 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
         pts = np.stack((X.ravel(), Y.ravel(), Z.ravel()), axis=1)
         sdf = primitive_sdf(pts, primitive).astype(np.float32).reshape((ix1 - ix0, iy1 - iy0, iz1 - iz0))
         field[ix0:ix1, iy0:iy1, iz0:iz1] = np.minimum(field[ix0:ix1, iy0:iy1, iz0:iz1], sdf)
+    for primitive in subtract_primitives:
+        mn, mx = _primitive_bounds(primitive)
+        if primitive.kind == "ellipsoid":
+            margin = float(np.max(np.asarray(primitive.radii, dtype=float))) + 3.5 * max_spacing
+        else:
+            margin = max(float(primitive.r0), float(primitive.r1)) + 3.5 * max_spacing
+        ix0, ix1 = _crop_indices(xs, mn[0], mx[0], margin)
+        iy0, iy1 = _crop_indices(ys, mn[1], mx[1], margin)
+        iz0, iz1 = _crop_indices(zs, mn[2], mx[2], margin)
+        if ix1 <= ix0 or iy1 <= iy0 or iz1 <= iz0:
+            continue
+        X, Y, Z = np.meshgrid(xs[ix0:ix1], ys[iy0:iy1], zs[iz0:iz1], indexing="ij")
+        pts = np.stack((X.ravel(), Y.ravel(), Z.ravel()), axis=1)
+        sdf = primitive_sdf(pts, primitive).astype(np.float32).reshape((ix1 - ix0, iy1 - iy0, iz1 - iz0))
+        field[ix0:ix1, iy0:iy1, iz0:iz1] = np.maximum(field[ix0:ix1, iy0:iy1, iz0:iz1], -sdf)
     # Store float16 to keep the package small. Values are approximate and intended
     # for fast clearance/collision prechecks, not clinical measurements.
     npz_path = coll_dir / "lumen_sdf_grid.npz"
@@ -358,7 +375,7 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
     )
     files["lumen_sdf_grid_npz"] = "collision/lumen_sdf_grid.npz"
     meta = {
-        "schema": "kidney_meshgen_sdf_grid_v0.6",
+        "schema": "kidney_meshgen_sdf_grid_v0.7",
         "units": "millimeters",
         "file": "collision/lumen_sdf_grid.npz",
         "field_name": "sdf_mm",
@@ -367,7 +384,7 @@ def write_sdf_grid(out_dir: Path, graph: AnatomyGraph, config: GeneratorConfig) 
         "bounds_max_mm": [float(v) for v in bounds_max],
         "spacing_mm": [float(v) for v in spacing],
         "grid_shape": [int(nx), int(ny), int(nz)],
-        "approximation": "analytic primitive union before surface smoothing/open-end cut",
+        "approximation": "analytic union with subtractive papilla solids before surface smoothing/open-end cut",
     }
     meta_path = coll_dir / "lumen_sdf_grid.json"
     with open(meta_path, "w", encoding="utf-8") as f:
@@ -391,7 +408,7 @@ def _runtime_tasks(graph: AnatomyGraph, stone_infos: List[StoneInfo]) -> List[Di
 def write_runtime_scene(out_dir: Path, config: GeneratorConfig, graph: AnatomyGraph, stone_infos: List[StoneInfo], file_map: Dict[str, str]) -> Dict[str, str]:
     files: Dict[str, str] = {}
     scene = {
-        "schema": "kidney_meshgen_runtime_scene_v0.6",
+        "schema": "kidney_meshgen_runtime_scene_v0.7",
         "anatomy_id": config.anatomy_id,
         "units": "millimeters",
         "unity_scale_to_meters": 0.001,
@@ -441,7 +458,7 @@ def write_runtime_scene(out_dir: Path, config: GeneratorConfig, graph: AnatomyGr
         unity_dir = out_dir / "unity"
         _ensure_dir(unity_dir)
         unity_cfg = {
-            "schema": "kidney_meshgen_unity_scene_v0.6",
+            "schema": "kidney_meshgen_unity_scene_v0.7",
             "units": "millimeters",
             "unityScaleToMeters": 0.001,
             "visualMesh": scene["assets"]["visual_lumen"],

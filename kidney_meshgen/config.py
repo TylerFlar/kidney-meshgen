@@ -46,9 +46,12 @@ class GeneratorConfig:
     open_ureter_start_offset_mm: float = 1.2
 
     # Overall collecting-system morphology
+    anatomy_realism_profile: str = "takazawa"  # takazawa or legacy
     calyx_count_min: int = 7
     calyx_count_max: int = 13
-    pelvis_type: str = "random"  # random, single, divided
+    pelvis_type: str = "random"  # random, single/divided, type_i/type_ii
+    pelvicalyceal_class: str = "random"  # random, type_i, type_ii
+    type_i_subtype: str = "random"  # random, ia, ib, ic
     pelvis_radius_x_mm: Tuple[float, float] = (7.0, 11.5)
     pelvis_radius_y_mm: Tuple[float, float] = (4.5, 8.0)
     pelvis_radius_z_mm: Tuple[float, float] = (8.5, 13.5)
@@ -60,6 +63,10 @@ class GeneratorConfig:
     upj_radius_mm: Tuple[float, float] = (2.9, 4.1)
     infundibulum_radius_mm: Tuple[float, float] = (1.45, 2.9)
     calyx_cup_radius_mm: Tuple[float, float] = (2.9, 5.4)
+    papilla_fornix_enabled: bool = True
+    papilla_radius_mm: Tuple[float, float] = (0.9, 1.8)
+    papilla_length_mm: Tuple[float, float] = (2.8, 5.6)
+    fornix_depth_fraction: Tuple[float, float] = (0.52, 0.74)
     lower_pole_angle_degrees: Tuple[float, float] = (35.0, 75.0)
 
     # Clean lower-pole access model for navigation/control.
