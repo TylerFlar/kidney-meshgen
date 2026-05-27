@@ -15,6 +15,7 @@ from kidney_meshgen.blenderproc_render import (
     _sample_realism_preset,
 )
 from kidney_meshgen.cli import build_parser
+from kidney_meshgen.dataset import build_camera_intrinsics, split_frame_indices, write_dataset_convention_files
 from kidney_meshgen.render_path import RenderPathOptions, build_blenderproc_camera_plan, write_blenderproc_camera_plan
 
 
@@ -146,6 +147,16 @@ def test_custom_k_matrix_json_scales_from_reference_resolution(tmp_path):
     assert np.allclose(k, [[450, 0, 480], [0, 450, 270], [0, 0, 1]])
 
 
+def test_camera_intrinsics_sidecar_resolves_fov_when_k_is_absent():
+    sensor = _resolve_sensor_model(_sensor_args(sensor_profile="none"), width=640, height=480, plan_fov_degrees=80.0)
+    payload = build_camera_intrinsics(sensor, 640, 480, clip_start_mm=0.08, clip_end_mm=260.0, plan_fov_degrees=80.0)
+    assert payload["schema"] == "kidney_meshgen_camera_intrinsics_v0.1"
+    assert payload["resolution"] == [640, 480]
+    assert payload["K"][0][0] > 0.0
+    assert payload["cx"] == 320.0
+    assert payload["camera_model"] == "pinhole"
+
+
 def test_circular_vignette_darkens_edges_and_masks_corners():
     mask, gain = _circular_mask_and_vignette(100, 120, radius_fraction=0.46, softness_fraction=0.04, strength=0.5)
     assert mask[50, 60] == 1.0
@@ -204,6 +215,94 @@ def test_fluid_model_requires_liquid_volume():
     assert model["enabled"] is False
     assert model["preset"] == "medium"
     assert model["debris_count"] == 0
+
+
+def test_dataset_sidecars_link_modalities_and_splits(tmp_path):
+    plan = {
+        "schema": "kidney_meshgen_blenderproc_camera_plan_v0.1",
+        "frame_count": 3,
+        "fov_degrees": 85.0,
+        "frames": [
+            {
+                "frame_index": 0,
+                "time_s": 0.0,
+                "cam2world_opengl": np.eye(4).tolist(),
+                "position_mm": [0.0, 0.0, 0.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+            },
+            {
+                "frame_index": 1,
+                "time_s": 0.1,
+                "cam2world_opengl": np.eye(4).tolist(),
+                "position_mm": [0.0, 0.0, 1.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+            },
+            {
+                "frame_index": 2,
+                "time_s": 0.2,
+                "cam2world_opengl": np.eye(4).tolist(),
+                "position_mm": [0.0, 0.0, 2.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+            },
+        ],
+    }
+    manifest = {
+        "anatomy_id": "dataset_case",
+        "seed": 4,
+        "case_dir": "case",
+        "config": {"side": "right", "anatomy_realism_profile": "takazawa"},
+        "anatomy_metadata": {"pelvicalyceal_class": "type_i"},
+        "stones": [{"material_class": "COM", "state": "intact"}],
+    }
+    sensor = _resolve_sensor_model(_sensor_args(no_lens_distortion=True), width=320, height=240, plan_fov_degrees=85.0)
+    paths = write_dataset_convention_files(
+        out_dir=tmp_path,
+        manifest=manifest,
+        plan=plan,
+        output_paths={
+            "rgb_dir": str(tmp_path / "rgb"),
+            "depth_dir": str(tmp_path / "depth"),
+            "normals_dir": str(tmp_path / "normals"),
+            "semantic_dir": str(tmp_path / "semantic"),
+        },
+        sensor_model=sensor,
+        width=320,
+        height=240,
+        clip_start_mm=0.08,
+        clip_end_mm=260.0,
+        render_seed=99,
+        split_ratios="1,1,1",
+        split_seed=12,
+        write_splits=True,
+        realism={"material_preset": "baseline", "light_preset": "baseline"},
+        fluid_model={"enabled": False},
+        material_preset_arg="baseline",
+        light_preset_arg="baseline",
+        randomize_realism=False,
+        pose_file="camera_poses.json",
+    )
+    assert paths["dataset_manifest_json"] == "dataset_manifest.json"
+    frames = json.loads((tmp_path / "frames.json").read_text(encoding="utf-8"))
+    assert frames["modalities"] == ["rgb", "depth", "normals", "semantic"]
+    assert frames["frames"][0]["files"]["rgb"] == "rgb/frame_000000.png"
+    assert frames["frames"][0]["files"]["semantic"] == "semantic/semantic_000000.png"
+    randomization = json.loads((tmp_path / "randomization.json").read_text(encoding="utf-8"))
+    assert randomization["render_seed"] == 99
+    splits = json.loads((tmp_path / "splits" / "splits.json").read_text(encoding="utf-8"))
+    assert sum(splits["counts"].values()) == 3
+    assert (tmp_path / "splits" / "train.txt").exists()
+
+
+def test_split_frame_indices_are_seeded_and_cover_all_frames():
+    first = split_frame_indices(10, "0.6,0.2,0.2", seed=5)
+    second = split_frame_indices(10, "0.6,0.2,0.2", seed=5)
+    assert first == second
+    assigned = sorted(idx for indices in first.values() for idx in indices)
+    assert assigned == list(range(10))
+    assert {name: len(indices) for name, indices in first.items()} == {"train": 6, "val": 2, "test": 2}
 
 
 def test_lens_fluid_effects_modify_rgb_frame():
@@ -277,6 +376,10 @@ def test_cli_exposes_realism_outputs_and_sensor_flags():
             "-0.2,0.04,0,0,0",
             "--render-seed",
             "77",
+            "--split-ratios",
+            "0.7,0.2,0.1",
+            "--split-seed",
+            "5",
         ]
     )
     assert args.normals is True
@@ -284,3 +387,5 @@ def test_cli_exposes_realism_outputs_and_sensor_flags():
     assert args.sensor_profile == "wide_fov_micro"
     assert args.fluid_preset == "high"
     assert args.render_seed == 77
+    assert args.split_ratios == "0.7,0.2,0.1"
+    assert args.split_seed == 5

@@ -7,8 +7,9 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from .blenderproc_render import FLUID_PRESETS, LIGHT_PRESETS, MATERIAL_PRESETS, SENSOR_PROFILES
+from .blenderproc_render import FLUID_PRESETS, LIGHT_PRESETS, MATERIAL_PRESETS, SENSOR_PROFILES, _resolve_sensor_model
 from .config import GeneratorConfig
+from .dataset import write_camera_intrinsics_file, write_split_files
 from .generator import generate_case
 from .render_path import RenderPathOptions, write_blenderproc_camera_plan
 from .stones import STONE_MATERIAL_CLASSES
@@ -138,9 +139,27 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
     plan_files = write_blenderproc_camera_plan(case_dir, out_dir, path_options)
     pose_file = Path(plan_files["camera_poses_json"])
     if args.plan_only:
+        with open(pose_file, "r", encoding="utf-8") as f:
+            plan = json.load(f)
+        sensor_model = _resolve_sensor_model(args, width, height, float(plan.get("fov_degrees", path_options.fov_degrees)))
+        intrinsics_path = write_camera_intrinsics_file(
+            out_dir,
+            sensor_model,
+            width,
+            height,
+            float(args.clip_start),
+            float(args.clip_end),
+            float(plan.get("fov_degrees", path_options.fov_degrees)),
+        )
+        split_seed = int(args.split_seed) if args.split_seed is not None else int(args.render_seed or 0)
+        split_paths = {}
+        if not args.no_splits:
+            split_paths = write_split_files(out_dir, int(plan_files["frame_count"]), args.split_ratios, seed=split_seed)
         print(json.dumps({
             "camera_poses": str(pose_file),
             "camera_poses_csv": plan_files["camera_poses_csv"],
+            "camera_intrinsics": str(intrinsics_path),
+            "splits": None if args.no_splits else str(out_dir / split_paths["splits_json"]),
             "frame_count": int(plan_files["frame_count"]),
         }, indent=2))
         return
@@ -236,13 +255,23 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
         cmd.append("--enable-semantic")
     if args.depth_of_field:
         cmd.append("--depth-of-field")
+    cmd.extend(["--split-ratios", args.split_ratios])
+    if args.split_seed is not None:
+        cmd.extend(["--split-seed", str(args.split_seed)])
+    if args.no_splits:
+        cmd.append("--no-splits")
 
     subprocess.run(cmd, check=True)
     print(json.dumps({
         "render_dir": str(out_dir),
         "rgb_dir": str(out_dir / "rgb"),
+        "camera_intrinsics": str(out_dir / "camera_intrinsics.json"),
+        "frames": str(out_dir / "frames.json"),
         "camera_poses": str(pose_file),
         "camera_poses_csv": plan_files["camera_poses_csv"],
+        "randomization": str(out_dir / "randomization.json"),
+        "dataset_manifest": str(out_dir / "dataset_manifest.json"),
+        "splits": None if args.no_splits else str(out_dir / "splits" / "splits.json"),
         "frame_count": int(plan_files["frame_count"]),
         "include_stones": bool(args.include_stones),
         "resolution": [width, height],
@@ -383,6 +412,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render.add_argument("--randomize-realism", dest="randomize_realism", action="store_true", default=True)
     render.add_argument("--no-randomize-realism", dest="randomize_realism", action="store_false")
+    render.add_argument(
+        "--split-ratios",
+        default="0.8,0.1,0.1",
+        help="Frame split ratios as train,val,test or train=0.8,val=0.1,test=0.1.",
+    )
+    render.add_argument("--split-seed", type=int, help="Seed used to shuffle frame IDs before train/val/test split assignment.")
+    render.add_argument("--no-splits", action="store_true", help="Skip writing splits/train.txt, val.txt, test.txt, and splits.json.")
     render.add_argument("--cpu", action="store_true", help="Force CPU rendering.")
     render.add_argument("--cpu-threads", type=int, help="CPU thread count to pass to BlenderProc.")
     render.set_defaults(func=cmd_render_blenderproc)

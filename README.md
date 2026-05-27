@@ -119,8 +119,14 @@ blenderproc_render/depth/*             Optional depth frames
 blenderproc_render/normals/*           Optional normal frames
 blenderproc_render/semantic/*          Optional semantic category-ID frames
 blenderproc_render/sensor/circular_mask.png Optional circular endoscope mask
+blenderproc_render/camera_intrinsics.json Explicit K, distortion, resolution, and camera conventions
+blenderproc_render/frames.json         Per-frame pose plus RGB/depth/normals/semantic file paths
 blenderproc_render/camera_poses.json   Per-frame camera-to-world matrices and pose metadata
 blenderproc_render/camera_poses.csv    Compact per-frame pose table
+blenderproc_render/randomization.json  Sequence/per-frame randomization seed and sampled parameters
+blenderproc_render/splits/*.txt        Train/val/test frame IDs
+blenderproc_render/splits/splits.json  Split metadata and frame-index assignments
+blenderproc_render/dataset_manifest.json Dataset sidecar index; HDF5/BOP exports are reserved for later
 blenderproc_render/render_metadata.json Renderer settings used for the run
 ```
 
@@ -164,6 +170,9 @@ Realism-oriented knobs:
 --normals                  Also write surface-normal frames
 --semantic                 Also write semantic category-ID frames
 --denoiser OPTIX|INTEL     Cycles denoising backend
+--split-ratios 0.8,0.1,0.1 Train/val/test frame split ratios
+--split-seed 123           Optional split shuffle seed; defaults to render seed
+--no-splits                Skip train/val/test split files
 ```
 
 With `--liquid volume`, `--fluid-preset auto` resolves to `medium`. That mode adds cloudy irrigation, sparse suspended stone-dust particles, air bubbles, RGB-only lens film/droplets, and occasional partial near-lens occlusion. Use `low` or `high` to tune visibility degradation. Lens contamination is applied to RGB frames only; depth, normals, and semantic outputs stay tied to scene geometry.
@@ -184,7 +193,7 @@ Custom calibration and sensor overrides:
 --rolling-shutter-length 0.08          Scanline exposure fraction for rolling shutter
 ```
 
-Each run also randomizes a tissue material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered tissue/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json`. Use `--render-seed N` to reproduce the same per-run realism choices.
+Each run also randomizes a tissue material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered tissue/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json` and `randomization.json`. Use `--render-seed N` to reproduce the same per-run realism choices. `frames.json` is the dataset-loader entry point for per-frame pose and modality paths; `camera_intrinsics.json` stores the explicit K matrix and Brown-Conrady coefficients used for the run.
 
 Stone appearance is sampled during case generation and preserved in `scene_manifest.json`, so BlenderProc renders each stone with its own composition-aware material rather than a single generic shader. Supported material classes are:
 

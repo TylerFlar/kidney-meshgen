@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from kidney_meshgen.dataset import MODALITY_FORMATS, SEMANTIC_LABELS, write_dataset_convention_files
 from kidney_meshgen.stones import STONE_MATERIAL_CLASSES
 
 SENSOR_PROFILES: Dict[str, Dict[str, Any]] = {
@@ -1634,6 +1635,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--light-preset", choices=["random", *sorted(LIGHT_PRESETS)], default="random")
     parser.add_argument("--randomize-realism", dest="randomize_realism", action="store_true", default=True)
     parser.add_argument("--no-randomize-realism", dest="randomize_realism", action="store_false")
+    parser.add_argument("--split-ratios", default="0.8,0.1,0.1")
+    parser.add_argument("--split-seed", type=int)
+    parser.add_argument("--no-splits", action="store_true")
     return parser
 
 
@@ -1723,6 +1727,33 @@ def main(argv: Optional[List[str]] = None) -> None:
     if mask_path is not None:
         output_paths["sensor_mask"] = mask_path
 
+    split_seed = int(args.split_seed) if args.split_seed is not None else int(render_seed)
+    manifest_for_dataset = dict(manifest)
+    manifest_for_dataset["case_dir"] = str(case_dir)
+    dataset_paths = write_dataset_convention_files(
+        out_dir=out_dir,
+        manifest=manifest_for_dataset,
+        plan=plan,
+        output_paths=output_paths,
+        sensor_model=sensor_model,
+        width=int(args.width),
+        height=int(args.height),
+        clip_start_mm=float(args.clip_start_mm),
+        clip_end_mm=float(args.clip_end_mm),
+        render_seed=int(render_seed),
+        split_ratios=args.split_ratios,
+        split_seed=split_seed,
+        write_splits=not bool(args.no_splits),
+        realism=realism,
+        fluid_model=fluid_model,
+        material_preset_arg=args.material_preset,
+        light_preset_arg=args.light_preset,
+        randomize_realism=bool(args.randomize_realism),
+        lens_mapping=lens_mapping,
+        pose_file=Path(args.pose_file),
+    )
+    output_paths.update(dataset_paths)
+
     metadata = {
         "schema": "kidney_meshgen_blenderproc_render_v0.2",
         "case_dir": str(case_dir),
@@ -1754,19 +1785,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         "depth_enabled": bool(args.enable_depth),
         "normals_enabled": bool(args.enable_normals),
         "semantic_enabled": bool(args.enable_semantic),
-        "output_formats": {
-            "rgb": "png",
-            "depth": "float32 npy",
-            "normals": "float32 npy",
-            "semantic": "uint16 png",
-        },
-        "semantic_labels": {
-            "background": 0,
-            "lumen_mucosa": 1,
-            "stone": 1001,
-            "suspended_stone_dust": 1002,
-            "irrigation_air_bubble": 1003,
-        },
+        "output_formats": MODALITY_FORMATS,
+        "semantic_labels": SEMANTIC_LABELS,
         "research_basis": RESEARCH_BASIS,
     }
     with open(out_dir / "render_metadata.json", "w", encoding="utf-8") as f:
