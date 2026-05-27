@@ -767,6 +767,8 @@ preview = [
 ]
 render = [
     { name = "blenderproc" },
+    { name = "imageio", version = "2.37.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "imageio", version = "2.37.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.dev-dependencies]
@@ -779,6 +781,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "blenderproc", marker = "extra == 'render'", specifier = ">=2.7.0" },
+    { name = "imageio", marker = "extra == 'render'", specifier = ">=2.31" },
     { name = "matplotlib", marker = "extra == 'preview'", specifier = ">=3.6" },
     { name = "numpy", specifier = ">=1.22" },
     { name = "pyyaml", specifier = ">=6.0" },

@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 preview = ["matplotlib>=3.6"]
-render = ["blenderproc>=2.7.0"]
+render = ["blenderproc>=2.7.0", "imageio>=2.31"]
 
 [dependency-groups]
 dev = [

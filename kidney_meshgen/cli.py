@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from .blenderproc_render import LIGHT_PRESETS, MATERIAL_PRESETS, SENSOR_PROFILES
 from .config import GeneratorConfig
 from .generator import generate_case
 from .render_path import RenderPathOptions, write_blenderproc_camera_plan
@@ -179,7 +180,35 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
         str(args.focus_distance),
         "--fstop",
         str(args.fstop),
+        "--sensor-profile",
+        args.sensor_profile,
+        "--material-preset",
+        args.material_preset,
+        "--light-preset",
+        args.light_preset,
     ]
+    if args.render_seed is not None:
+        cmd.extend(["--render-seed", str(args.render_seed)])
+    if args.camera_k is not None:
+        cmd.extend(["--camera-k", str(args.camera_k)])
+    if args.distortion_coeffs is not None:
+        cmd.extend(["--distortion-coeffs", str(args.distortion_coeffs)])
+    if args.no_lens_distortion:
+        cmd.append("--no-lens-distortion")
+    if args.no_sensor_effects:
+        cmd.append("--no-sensor-effects")
+    if args.exposure_ev is not None:
+        cmd.extend(["--exposure-ev", str(args.exposure_ev)])
+    if args.white_balance is not None:
+        cmd.extend(["--white-balance", str(args.white_balance)])
+    if args.motion_blur_length is not None:
+        cmd.extend(["--motion-blur-length", str(args.motion_blur_length)])
+    if args.rolling_shutter_type is not None:
+        cmd.extend(["--rolling-shutter-type", args.rolling_shutter_type])
+    if args.rolling_shutter_length is not None:
+        cmd.extend(["--rolling-shutter-length", str(args.rolling_shutter_length)])
+    if not args.randomize_realism:
+        cmd.append("--no-randomize-realism")
     if args.include_stones:
         cmd.append("--include-stones")
     if args.cpu:
@@ -188,6 +217,10 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
         cmd.extend(["--cpu-threads", str(args.cpu_threads)])
     if args.depth:
         cmd.append("--enable-depth")
+    if args.normals:
+        cmd.append("--enable-normals")
+    if args.semantic:
+        cmd.append("--enable-semantic")
     if args.depth_of_field:
         cmd.append("--depth-of-field")
 
@@ -201,6 +234,9 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
         "include_stones": bool(args.include_stones),
         "resolution": [width, height],
         "quality": args.quality,
+        "sensor_profile": args.sensor_profile,
+        "normals": bool(args.normals),
+        "semantic": bool(args.semantic),
     }, indent=2))
 
 
@@ -263,7 +299,9 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--noise-threshold", type=float, help="Override Cycles adaptive sampling noise threshold.")
     render.add_argument("--denoiser", choices=["OPTIX", "INTEL", "none"], default="OPTIX", help="Cycles denoiser.")
     render.add_argument("--color-depth", type=int, choices=[8, 16], default=8, help="PNG color depth.")
-    render.add_argument("--depth", action="store_true", help="Also render depth EXR frames.")
+    render.add_argument("--depth", action="store_true", help="Also render depth frames.")
+    render.add_argument("--normals", action="store_true", help="Also render surface normal frames.")
+    render.add_argument("--semantic", action="store_true", help="Also render semantic category-ID segmentation frames.")
     render.add_argument("--depth-of-field", action="store_true", help="Enable camera depth of field.")
     render.add_argument("--focus-distance", type=float, default=18.0, help="Depth-of-field focus distance in millimeters.")
     render.add_argument("--fstop", type=float, default=7.0, help="Depth-of-field f-stop.")
@@ -272,6 +310,46 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--spot-angle", type=float, default=92.0, help="Camera-mounted spot angle in degrees.")
     render.add_argument("--clip-start", type=float, default=0.08, help="Camera near clip in millimeters.")
     render.add_argument("--clip-end", type=float, default=260.0, help="Camera far clip in millimeters.")
+    render.add_argument("--render-seed", type=int, help="Seed for per-run material, light, and sensor randomization.")
+    render.add_argument(
+        "--sensor-profile",
+        choices=sorted(SENSOR_PROFILES),
+        default="flexible_ureteroscope_hd",
+        help="Endoscope sensor profile for K, distortion, vignette, exposure/WB, noise, and shutter artifacts.",
+    )
+    render.add_argument(
+        "--camera-k",
+        help="Custom intrinsics K as JSON/list or path to JSON with K and optional resolution fields.",
+    )
+    render.add_argument(
+        "--distortion-coeffs",
+        help="Brown-Conrady coefficients as k1,k2,k3,p1,p2 or equivalent JSON list.",
+    )
+    render.add_argument("--no-lens-distortion", action="store_true", help="Disable Brown-Conrady distortion.")
+    render.add_argument("--no-sensor-effects", action="store_true", help="Disable vignette, exposure/WB, and sensor noise.")
+    render.add_argument("--exposure-ev", type=float, help="Override profile exposure compensation in EV.")
+    render.add_argument("--white-balance", help="Override profile white balance as R,G,B multipliers.")
+    render.add_argument("--motion-blur-length", type=float, help="Override shutter-open fraction between frames; 0 disables.")
+    render.add_argument(
+        "--rolling-shutter-type",
+        choices=["NONE", "TOP", "BOTTOM", "LEFT", "RIGHT"],
+        help="Rolling shutter scan direction.",
+    )
+    render.add_argument("--rolling-shutter-length", type=float, help="Rolling-shutter scanline exposure fraction.")
+    render.add_argument(
+        "--material-preset",
+        choices=["random", *sorted(MATERIAL_PRESETS)],
+        default="random",
+        help="Material preset to use, or random per run.",
+    )
+    render.add_argument(
+        "--light-preset",
+        choices=["random", *sorted(LIGHT_PRESETS)],
+        default="random",
+        help="Light preset to use, or random per run.",
+    )
+    render.add_argument("--randomize-realism", dest="randomize_realism", action="store_true", default=True)
+    render.add_argument("--no-randomize-realism", dest="randomize_realism", action="store_false")
     render.add_argument("--cpu", action="store_true", help="Force CPU rendering.")
     render.add_argument("--cpu-threads", type=int, help="CPU thread count to pass to BlenderProc.")
     render.set_defaults(func=cmd_render_blenderproc)

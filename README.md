@@ -105,6 +105,10 @@ Important render outputs:
 
 ```text
 blenderproc_render/rgb/frame_*.png     Rendered RGB image sequence
+blenderproc_render/depth/*             Optional depth frames
+blenderproc_render/normals/*           Optional normal frames
+blenderproc_render/semantic/*          Optional semantic category-ID frames
+blenderproc_render/sensor/circular_mask.png Optional circular endoscope mask
 blenderproc_render/camera_poses.json   Per-frame camera-to-world matrices and pose metadata
 blenderproc_render/camera_poses.csv    Compact per-frame pose table
 blenderproc_render/render_metadata.json Renderer settings used for the run
@@ -145,9 +149,29 @@ Realism-oriented knobs:
 --liquid film              Wet glossy tissue material, default
 --liquid volume            Adds subtle irrigation volume scattering
 --depth-of-field           Optional short-range camera DOF
---depth                    Also write depth EXR frames
+--depth                    Also write depth frames
+--normals                  Also write surface-normal frames
+--semantic                 Also write semantic category-ID frames
 --denoiser OPTIX|INTEL     Cycles denoising backend
 ```
+
+Endoscope sensor realism is enabled by default with `--sensor-profile flexible_ureteroscope_hd`. Profiles provide a synthetic calibrated intrinsics matrix `K`, Brown-Conrady radial/decentering distortion, circular vignette/mask, exposure and white-balance gains, rolling-shutter/motion-blur settings, and a simple shot/read/PRNU sensor-noise model. Use `--sensor-profile none` for a plain pinhole camera model.
+
+Custom calibration and sensor overrides:
+
+```text
+--camera-k camera.json                 JSON matrix or file with {"resolution": [w,h], "K": [[fx,0,cx], ...]}
+--distortion-coeffs k1,k2,k3,p1,p2     Brown-Conrady/OpenCV-style coefficients
+--no-lens-distortion                   Keep calibrated K but skip distortion warping
+--no-sensor-effects                    Skip vignette, mask, exposure/WB, and sensor noise
+--exposure-ev -0.2                     Override profile exposure compensation
+--white-balance 1.05,1.0,0.94          Override RGB white-balance multipliers
+--motion-blur-length 0.25              Shutter-open fraction between frames; 0 disables
+--rolling-shutter-type TOP             NONE, TOP, BOTTOM, LEFT, or RIGHT
+--rolling-shutter-length 0.08          Scanline exposure fraction for rolling shutter
+```
+
+Each run also randomizes a material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered material/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json`. Use `--render-seed N` to reproduce the same per-run realism choices.
 
 Higher-resolution preset:
 
@@ -269,6 +293,10 @@ The default profile is research-informed, not patient-specific. It uses Takazawa
 - Modified Takazawa / 3D virtual reconstruction context: <https://pmc.ncbi.nlm.nih.gov/articles/PMC8350222/>
 - Lower-pole infundibular angle, length, and width relevance: <https://pmc.ncbi.nlm.nih.gov/articles/PMC11252207/>
 - Renal pelvis/calyx urothelial lining and lamina propria context: <https://basicmedicalkey.com/renal-pelvis-and-ureter-2/>
+- BlenderProc calibrated `K` intrinsics and Brown-Conrady lens distortion workflow: <https://dlr-rm.github.io/BlenderProc/examples/advanced/lens_distortion/README.html>
+- BlenderProc depth, normals, segmentation, motion blur, and rolling-shutter renderer hooks: <https://dlr-rm.github.io/BlenderProc/blenderproc.api.renderer.html>
+- Brown-Conrady radial/tangential lens model background: <https://pmc.ncbi.nlm.nih.gov/articles/PMC4934233/>
+- Sensor-noise model inspiration: photon shot noise, read noise, PRNU, exposure and white-balance terms following common EMVA 1288 / computational photography image-formation approximations.
 
 ## Useful config knobs
 
