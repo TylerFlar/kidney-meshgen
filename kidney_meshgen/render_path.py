@@ -178,6 +178,12 @@ def _sample_node_sequence(graph: Dict, node_ids: Sequence[str], spacing_mm: floa
         else:
             r0 = float(edge["radius0_mm"])
             r1 = float(edge["radius1_mm"])
+        edge_source = str(edge["source"])
+        edge_target = str(edge["target"])
+        edge_forward = np.asarray(nodes[edge_target]["position_mm"], dtype=float) - np.asarray(
+            nodes[edge_source]["position_mm"],
+            dtype=float,
+        )
         for i in range(steps + 1):
             if samples and i == 0:
                 continue
@@ -191,6 +197,7 @@ def _sample_node_sequence(graph: Dict, node_ids: Sequence[str], spacing_mm: floa
                     "radius_mm": float(radius),
                     "edge_id": edge.get("id"),
                     "edge_t": float(edge_t),
+                    "edge_forward": edge_forward,
                     "region": edge.get("region"),
                     "kind": edge.get("kind"),
                 }
@@ -221,8 +228,6 @@ def _resample_samples(samples: List[Dict], options: RenderPathOptions) -> Tuple[
     frame_distances = np.arange(0.0, total, desired_step, dtype=float)
     if len(frame_distances) == 0 or abs(float(frame_distances[-1]) - total) > 1e-6:
         frame_distances = np.concatenate((frame_distances, [total]))
-    if options.max_frames is not None and int(options.max_frames) > 1 and len(frame_distances) > int(options.max_frames):
-        frame_distances = np.linspace(0.0, total, int(options.max_frames), dtype=float)
     effective_step = total / max(len(frame_distances) - 1, 1)
 
     coords = np.column_stack(
@@ -245,11 +250,22 @@ def _resample_samples(samples: List[Dict], options: RenderPathOptions) -> Tuple[
                 "radius_mm": float(radius),
                 "edge_id": base.get("edge_id"),
                 "edge_t": base.get("edge_t"),
+                "edge_forward": base.get("edge_forward"),
                 "region": base.get("region"),
                 "kind": base.get("kind"),
             }
         )
     return frame_samples, effective_step
+
+
+def _output_frame_indices(native_frame_count: int, max_frames: Optional[int]) -> List[int]:
+    if native_frame_count <= 0:
+        return []
+    if max_frames is None or int(max_frames) <= 0 or int(max_frames) >= native_frame_count:
+        return list(range(native_frame_count))
+    if int(max_frames) == 1:
+        return [0]
+    return [int(v) for v in np.linspace(0, native_frame_count - 1, int(max_frames), dtype=int)]
 
 
 def _union_sdf(points: np.ndarray, primitives: Iterable[Dict]) -> np.ndarray:
@@ -349,19 +365,22 @@ def _camera_matrix(position: np.ndarray, forward: np.ndarray, up: np.ndarray) ->
 
 def _attach_orientation(samples: List[Dict], positions: np.ndarray, options: RenderPathOptions) -> None:
     distances = np.asarray([float(sample["distance_mm"]) for sample in samples], dtype=float)
-    lookahead = max(float(options.lookahead_mm), 0.1)
     forwards = np.zeros_like(positions)
     for idx, (distance, pos) in enumerate(zip(distances, positions)):
-        target_distance = min(float(distances[-1]), distance + lookahead)
-        j = int(np.searchsorted(distances, target_distance, side="left"))
-        if j <= idx and idx < len(positions) - 1:
-            j = idx + 1
-        if j < len(positions) and np.linalg.norm(positions[j] - pos) > 1e-6:
-            forward = positions[j] - pos
-        elif idx > 0:
-            forward = pos - positions[idx - 1]
-        else:
-            forward = np.array([0.0, 0.0, 1.0], dtype=float)
+        raw_forward = samples[idx].get("edge_forward")
+        forward = np.asarray(raw_forward, dtype=float) if raw_forward is not None else np.zeros(3, dtype=float)
+        if forward.shape != (3,) or np.linalg.norm(forward) < 1e-8:
+            lookahead = max(float(options.lookahead_mm), 0.1)
+            target_distance = min(float(distances[-1]), distance + lookahead)
+            j = int(np.searchsorted(distances, target_distance, side="left"))
+            if j <= idx and idx < len(positions) - 1:
+                j = idx + 1
+            if j < len(positions) and np.linalg.norm(positions[j] - pos) > 1e-6:
+                forward = positions[j] - pos
+            elif idx > 0:
+                forward = pos - positions[idx - 1]
+            else:
+                forward = np.array([0.0, 0.0, 1.0], dtype=float)
         forwards[idx] = _normalize(forward, forwards[idx - 1] if idx else (0.0, 0.0, 1.0))
     if len(forwards) > 2:
         sigma = max(0.5, min(3.0, float(options.lookahead_mm) / max(float(options.speed_mm_s / options.fps), 1e-6) * 0.25))
@@ -390,14 +409,19 @@ def build_blenderproc_camera_plan(case_dir: str | Path, options: Optional[Render
     _attach_orientation(samples, smoothed, options)
 
     fps = max(float(options.fps), 1.0)
+    native_frame_count = len(samples)
+    output_indices = _output_frame_indices(native_frame_count, options.max_frames)
     frames = []
-    for idx, (sample, sdf_value) in enumerate(zip(samples, sdf)):
+    for output_idx, source_idx in enumerate(output_indices):
+        sample = samples[source_idx]
+        sdf_value = sdf[source_idx]
         mat = np.asarray(sample["cam2world"], dtype=float)
         pos = np.asarray(sample["position"], dtype=float)
         frames.append(
             {
-                "frame_index": idx,
-                "time_s": float(idx / fps),
+                "frame_index": output_idx,
+                "source_frame_index": int(source_idx),
+                "time_s": float(source_idx / fps),
                 "distance_mm": float(sample["distance_mm"]),
                 "position_mm": [float(v) for v in pos],
                 "forward": [float(v) for v in np.asarray(sample["forward"], dtype=float)],
@@ -431,6 +455,9 @@ def build_blenderproc_camera_plan(case_dir: str | Path, options: Optional[Render
             "max_smooth_offset_mm": float(options.max_smooth_offset_mm),
             "lookahead_mm": float(options.lookahead_mm),
         },
+        "native_frame_count": int(native_frame_count),
+        "subsampled": bool(len(output_indices) != native_frame_count),
+        "output_source_frame_indices": [int(v) for v in output_indices],
         "frame_count": len(frames),
         "warnings": warnings,
         "frames": frames,

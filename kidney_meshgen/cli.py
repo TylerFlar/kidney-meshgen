@@ -171,7 +171,7 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
             "or `uv pip install blenderproc`, then rerun this command."
         )
 
-    script = Path(__file__).resolve().with_name("blenderproc_render.py")
+    script = Path(__file__).resolve().with_name("blenderproc_entry.py")
     cmd = [
         blenderproc,
         "run",

@@ -616,7 +616,7 @@ def _assign_material(objects, material) -> None:
 
 
 def _load_obj_assets(bproc, path: Path):
-    return bproc.loader.load_obj(str(path))
+    return bproc.loader.load_obj(str(path), forward_axis="Y", up_axis="Z")
 
 
 def _set_category(objects, category_id: int) -> None:
@@ -1249,6 +1249,23 @@ def _configure_motion_artifacts(bproc, sensor_model: Dict[str, Any]) -> None:
     )
 
 
+def _apply_plan_temporal_constraints(sensor_model: Dict[str, Any], plan: Dict) -> Dict[str, Any]:
+    if not bool(plan.get("subsampled")):
+        return sensor_model
+    constrained = dict(sensor_model)
+    if float(constrained.get("motion_blur_length", 0.0)) > 0.0 or str(
+        constrained.get("rolling_shutter_type", "NONE")
+    ).upper() != "NONE":
+        constrained["motion_blur_length"] = 0.0
+        constrained["rolling_shutter_type"] = "NONE"
+        constrained["rolling_shutter_length"] = 1.0
+        constrained["temporal_effects_disabled_reason"] = (
+            "camera plan was subsampled from the native 30 fps trajectory; "
+            "motion blur and rolling shutter require consecutive native frames"
+        )
+    return constrained
+
+
 def _frame_path(out_dir: Path, prefix: str, index: int, suffix: str) -> Path:
     return out_dir / f"{prefix}{index:06d}.{suffix}"
 
@@ -1517,7 +1534,7 @@ def _apply_lens_distortion_to_data(bproc, data: Dict[str, Any], lens_mapping: Op
     mapping_coords = lens_mapping["mapping_coords"]
     orig_res_x = int(lens_mapping["orig_res_x"])
     orig_res_y = int(lens_mapping["orig_res_y"])
-    for key in ("colors", "depth", "distance", "normals", "segmap"):
+    for key in ("colors", "depth", "distance", "normals", "segmap", "category_id_segmaps"):
         if key not in data:
             continue
         data[key] = bproc.postprocessing.apply_lens_distortion(
@@ -1586,9 +1603,10 @@ def _render_and_write_outputs(
             raise RuntimeError("Normals output was requested, but BlenderProc did not return normal frames.")
         _write_float_frames(data["normals"], out_dir / "normals", "normals_", sensor_model)
     if args.enable_semantic:
-        if "segmap" not in data:
+        semantic_key = "segmap" if "segmap" in data else "category_id_segmaps"
+        if semantic_key not in data:
             raise RuntimeError("Semantic output was requested, but BlenderProc did not return segmentation frames.")
-        _write_semantic_frames(data["segmap"], out_dir / "semantic", "semantic_", sensor_model)
+        _write_semantic_frames(data[semantic_key], out_dir / "semantic", "semantic_", sensor_model)
     return output_paths
 
 
@@ -1662,6 +1680,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         int(args.height),
         float(plan.get("fov_degrees", 85.0)),
     )
+    sensor_model = _apply_plan_temporal_constraints(sensor_model, plan)
     realism = _sample_realism_preset(args, rng)
     fluid_model = _resolve_fluid_model(args, plan, rng)
 

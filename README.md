@@ -38,6 +38,14 @@ The current anatomy realism profile includes:
 - Region-specific sampled branch length, radius, and angle metadata in each `calyx_targets` entry.
 - Geometry QA distinguishes intended proximal branch-family blending from distal/cup overlap risks.
 
+## Preview images
+
+These previews were sampled from a 12-case no-stone RGB-D evaluation set rendered with the realistic flexible-ureteroscope sensor profile.
+
+![Realistic RGB endoscope montage](docs/rgb_montage.png)
+
+![Colorized depth montage](docs/depth_montage.png)
+
 ## Install
 
 ```bash
@@ -130,7 +138,7 @@ blenderproc_render/dataset_manifest.json Dataset sidecar index; HDF5/BOP exports
 blenderproc_render/render_metadata.json Renderer settings used for the run
 ```
 
-The camera path starts at the entry node, performs a deterministic DFS walk over the centerline graph, and backtracks over the same edges. You can instead fly to one node and reverse back:
+The camera path starts at the entry node, performs a deterministic DFS walk over the centerline graph, and backtracks over the same edges. During backtracking the camera does not turn around; it reverses through the same anatomical view direction, matching a scope being withdrawn. You can instead fly to one node and reverse back:
 
 ```bash
 uv run kidney-meshgen render-blenderproc \
@@ -138,7 +146,7 @@ uv run kidney-meshgen render-blenderproc \
   --target-node pelvis_center
 ```
 
-The path planner smooths the sampled centerline motion, then validates every smoothed camera center against the analytic primitive SDF. If a smoothed point would violate `--wall-clearance`, it is blended back toward the original centerline point. Useful path knobs:
+The path planner first builds the native trajectory at the requested `--fps` and `--speed`, smooths the sampled centerline motion, then validates every smoothed camera center against the analytic primitive SDF. If a smoothed point would violate `--wall-clearance`, it is blended back toward the original centerline point. If `--max-frames` is provided, frames are selected from the completed native trajectory rather than changing the trajectory spacing. Motion blur and rolling shutter are disabled automatically for subsampled plans because those effects require consecutive native frames. Useful path knobs:
 
 ```text
 --speed 18                 Nominal camera speed in mm/s
@@ -146,7 +154,7 @@ The path planner smooths the sampled centerline motion, then validates every smo
 --smooth-window 3.0        Motion smoothing window in mm
 --max-smooth-offset 0.75   Maximum displacement away from centerline
 --wall-clearance 0.45      Required lumen SDF clearance in mm
---max-frames 300           Resample the full path to a smaller image sequence
+--max-frames 300           Select frames from the completed native path
 ```
 
 Renderer quality presets:
@@ -194,6 +202,41 @@ Custom calibration and sensor overrides:
 ```
 
 Each run also randomizes a tissue material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered tissue/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json` and `randomization.json`. Use `--render-seed N` to reproduce the same per-run realism choices. `frames.json` is the dataset-loader entry point for per-frame pose and modality paths; `camera_intrinsics.json` stores the explicit K matrix and Brown-Conrady coefficients used for the run.
+
+### Realistic RGB-D evaluation set
+
+For visual odometry, reconstruction, and camera-tracking evaluation, use no-stone cases with native frame spacing rather than a sparse `--max-frames` preview. The following pattern renders realistic endoscope RGB-D at 10 fps with calibrated intrinsics, Brown-Conrady lens distortion, vignette/circular mask, exposure/white-balance variation, shot/read/PRNU sensor noise, motion blur, and rolling shutter:
+
+```bash
+uv sync --extra render --dev
+
+uv run kidney-meshgen generate \
+  --out output/rgbd_eval_10fps_nostones/eval_001 \
+  --seed 2001 \
+  --anatomy-id eval_001 \
+  --side right \
+  --pelvicalyceal-class type_i \
+  --lower-pole-access easy \
+  --stones 0 \
+  --no-preview
+
+uv run kidney-meshgen render-blenderproc \
+  --case-dir output/rgbd_eval_10fps_nostones/eval_001 \
+  --out output/rgbd_eval_10fps_nostones/eval_001/blenderproc_rgbd_10fps_sensor128 \
+  --quality preview \
+  --width 640 \
+  --height 360 \
+  --samples 128 \
+  --noise-threshold 0.015 \
+  --fps 10 \
+  --speed 18 \
+  --depth \
+  --denoiser OPTIX \
+  --render-seed 7101 \
+  --split-seed 7101
+```
+
+A useful 12-case evaluation cohort mixes right/left sides, Type I/Type II/random anatomy, and easy/intermediate/hard lower-pole access. One generated cohort used 4,532 native 10 fps RGB-D frames across 12 no-stone cases, with no low/black RGB frames, no empty depth frames, and per-case `frames.json`, `camera_poses.json`, `camera_intrinsics.json`, `randomization.json`, and train/val/test split files. A local dataset index can be written at `output/rgbd_eval_10fps_nostones/dataset_index.json`; `output/` is intentionally ignored by git.
 
 Stone appearance is sampled during case generation and preserved in `scene_manifest.json`, so BlenderProc renders each stone with its own composition-aware material rather than a single generic shader. Supported material classes are:
 

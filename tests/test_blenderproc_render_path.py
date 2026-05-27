@@ -7,6 +7,7 @@ import numpy as np
 from kidney_meshgen import GeneratorConfig, generate_case
 from kidney_meshgen.blenderproc_render import (
     _apply_lens_fluid_effects,
+    _apply_plan_temporal_constraints,
     _apply_rgb_sensor_effects,
     _circular_mask_and_vignette,
     _parse_k_matrix,
@@ -110,6 +111,9 @@ def test_blenderproc_plan_routes_to_target_and_back(tmp_path: Path):
     assert len(plan["frames"][0]["cam2world_opengl"]) == 4
     assert len(plan["frames"][0]["cam2world_opengl"][0]) == 4
     assert max(frame["sdf_mm"] for frame in plan["frames"]) <= -0.1
+    start_forward = np.asarray(plan["frames"][0]["forward"], dtype=float)
+    end_forward = np.asarray(plan["frames"][-1]["forward"], dtype=float)
+    assert float(np.dot(start_forward, end_forward)) > 0.95
 
 
 def test_blenderproc_pose_files_are_written(tmp_path: Path):
@@ -123,6 +127,30 @@ def test_blenderproc_pose_files_are_written(tmp_path: Path):
     assert Path(files["camera_poses_json"]).exists()
     assert Path(files["camera_poses_csv"]).exists()
     assert int(files["frame_count"]) <= 40
+
+
+def test_max_frames_subsamples_finished_native_trajectory(tmp_path: Path):
+    case_dir = _make_case(tmp_path)
+    options = RenderPathOptions(traversal="pelvis", fps=30.0, speed_mm_s=18.0, wall_clearance_mm=0.1)
+    full = build_blenderproc_camera_plan(case_dir, options)
+    capped = build_blenderproc_camera_plan(
+        case_dir,
+        RenderPathOptions(traversal="pelvis", fps=30.0, speed_mm_s=18.0, max_frames=8, wall_clearance_mm=0.1),
+    )
+    assert capped["subsampled"] is True
+    assert capped["native_frame_count"] == full["frame_count"]
+    assert capped["frame_count"] == 8
+    assert capped["output_source_frame_indices"][0] == 0
+    assert capped["output_source_frame_indices"][-1] == full["frame_count"] - 1
+    assert capped["frames"][1]["time_s"] > 1.0 / 30.0
+
+
+def test_subsampled_plan_disables_motion_interpolation_artifacts():
+    sensor = {"motion_blur_length": 0.28, "rolling_shutter_type": "TOP", "rolling_shutter_length": 0.08}
+    constrained = _apply_plan_temporal_constraints(sensor, {"subsampled": True})
+    assert constrained["motion_blur_length"] == 0.0
+    assert constrained["rolling_shutter_type"] == "NONE"
+    assert "subsampled" in constrained["temporal_effects_disabled_reason"]
 
 
 def test_sensor_profile_resolves_intrinsics_and_distortion():
