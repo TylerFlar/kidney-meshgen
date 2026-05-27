@@ -12,7 +12,7 @@ import trimesh
 from .config import GeneratorConfig
 from .graph import AnatomyGraph, Edge, edge_length
 from .mesh import MeshBuildResult
-from .stones import StoneInfo
+from .stones import STONE_RESEARCH_BASIS, StoneInfo, stone_material_class_summary
 
 
 def _ensure_dir(path: Path) -> None:
@@ -133,10 +133,6 @@ def scope_start_pose(graph: AnatomyGraph) -> Dict:
     }
 
 
-# Backward compatibility for earlier internal callers.
-_scope_start_pose = scope_start_pose
-
-
 def apply_vertex_label_colors(mesh: trimesh.Trimesh, vertex_labels: np.ndarray) -> trimesh.Trimesh:
     mesh = mesh.copy()
     colors = np.array([label_color(int(label)) for label in vertex_labels], dtype=np.uint8)
@@ -205,7 +201,6 @@ def export_meshes(
         for idx, mesh in enumerate(stone_meshes):
             mesh.export(stones_dir / f"stone_{idx:03d}.obj")
         combined = trimesh.util.concatenate(stone_meshes)
-        combined.visual.vertex_colors = np.tile(np.array([[212, 192, 145, 255]], dtype=np.uint8), (len(combined.vertices), 1))
         combined.export(stones_dir / "stones.obj")
         files["stones_obj"] = "stones/stones.obj"
         if config.export_glb:
@@ -397,6 +392,11 @@ def write_manifest(
         "labels": {str(k): v for k, v in graph.labels.items()},
         "calyx_targets": graph.calyx_targets,
         "stones": [s.to_dict() for s in stone_infos],
+        "stone_material_model": {
+            "classes": stone_material_class_summary(),
+            "supported_states": ["intact", "laser_fragmented_gravel"],
+            "research_basis": STONE_RESEARCH_BASIS,
+        },
         "scope_start_pose": scope_start_pose(graph),
         "simulator": {
             "primary_engine": "Unity real-time simulator",

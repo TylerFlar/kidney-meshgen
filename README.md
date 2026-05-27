@@ -60,6 +60,16 @@ uv run kidney-meshgen generate \
   --stones 3
 ```
 
+Choose a material cohort or force a laser-fragmented gravel field:
+
+```bash
+uv run kidney-meshgen generate \
+  --out output/gravel_case \
+  --stone-materials COM,COD,uric_acid,struvite_apatite,cystine \
+  --stone-fragmentation gravel \
+  --stones 2
+```
+
 Force a Takazawa class when you want a controlled cohort:
 
 ```bash
@@ -174,7 +184,19 @@ Custom calibration and sensor overrides:
 --rolling-shutter-length 0.08          Scanline exposure fraction for rolling shutter
 ```
 
-Each run also randomizes a material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered material/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json`. Use `--render-seed N` to reproduce the same per-run realism choices.
+Each run also randomizes a tissue material preset and a camera-light preset unless you pass `--no-randomize-realism`. The selected preset, jittered tissue/light values, resolved sensor model, semantic label IDs, and render seed are saved in `render_metadata.json`. Use `--render-seed N` to reproduce the same per-run realism choices.
+
+Stone appearance is sampled during case generation and preserved in `scene_manifest.json`, so BlenderProc renders each stone with its own composition-aware material rather than a single generic shader. Supported material classes are:
+
+```text
+COM                calcium oxalate monohydrate / whewellite: dark, hard, smoother
+COD                calcium oxalate dihydrate / weddellite: lighter, brittle, jagged
+uric_acid          yellow-orange to red-brown, smoother/waxy
+struvite_apatite   pale chalky infection/phosphate mix, granular and brittle
+cystine            amber-yellow waxy stones with hexagonal crystal relief
+```
+
+`stone_fragmentation: intact` generates single faceted stones. `stone_fragmentation: gravel` generates laser-fragmented gravel fields with many angular fragments. `mixed` samples both using `stone_gravel_probability`.
 
 Higher-resolution preset:
 
@@ -203,7 +225,7 @@ uv run kidney-meshgen generate \
 Each generated case contains:
 
 ```text
-scene_manifest.json                  Full machine-readable case manifest
+scene_manifest.json                  Full manifest, including stone material/state metadata
 runtime_scene.json                    Runtime descriptor for a Unity / Gym bridge
 centerline_graph.json                 Nodes, edges, radii, regions, calyx targets
 camera_paths.json                     Dense centerline samples and routes to calyces
@@ -285,6 +307,8 @@ The generator keeps optional export paths narrow and focuses on simulator-ready 
 - **Cleaner lower pole**: the lower pole uses an explicit access trunk and minor-calyx fan-out.
 - **Stronger branch clearance**: retry sampling and increased clearances reduce accidental chamber fusion.
 - **Collision assets**: outputs both a collision proxy mesh and an approximate SDF grid.
+- **Composition-aware stones**: COM, COD, uric acid, struvite/apatite, and cystine stones carry randomized color, crystal bump, roughness, and fracture-plane metadata.
+- **Laser gravel fields**: stones can be generated intact or as clustered angular fragments for dusting/fragmentation simulation.
 - **Navigation waypoints**: route waypoints include radius and estimated scope clearance.
 - **Lean runtime descriptor**: `runtime_scene.json` replaces BlenderProc/Isaac descriptors.
 
@@ -301,6 +325,10 @@ The default profile is research-informed, not patient-specific. It uses Takazawa
 - RIRS irrigation/stone-dust visibility background: <https://icurology.org/DOIx.php?id=10.4111%2Ficu.20200526>
 - Endoscopic lens fogging and retained contaminant background: <https://journals.sagepub.com/doi/10.1089/end.2009.0594>
 - Lens washing/contaminant accumulation background: <https://pubmed.ncbi.nlm.nih.gov/30020986/>
+- Stone composition, color, hardness, and gross morphology summaries: <https://www.ncbi.nlm.nih.gov/sites/books/NBK442014/>
+- Morphoconstitutional stone description context: <https://pmc.ncbi.nlm.nih.gov/articles/PMC9818792/>
+- Kidney stone crystal/surface morphology context: <https://pmc.ncbi.nlm.nih.gov/articles/PMC5685519/>
+- Holmium laser dusting and fragmentation background: <https://www.frontiersin.org/journals/surgery/articles/10.3389/fsurg.2017.00057/full>
 - Blender volume scatter model: <https://docs.blender.org/manual/en/latest/render/shader_nodes/shader/volume_scatter.html>
 - Brown-Conrady radial/tangential lens model background: <https://pmc.ncbi.nlm.nih.gov/articles/PMC4934233/>
 - Sensor-noise model inspiration: photon shot noise, read noise, PRNU, exposure and white-balance terms following common EMVA 1288 / computational photography image-formation approximations.
@@ -320,6 +348,15 @@ branch_sample_attempts: 140
 cup_center_clearance_mm: 8.0
 tube_clearance_mm: 1.65
 scope_outer_diameter_mm: 3.0
+stone_count: 3
+stone_material_classes: [COM, COD, uric_acid, struvite_apatite, cystine]
+stone_fragmentation: mixed          # intact, gravel, laser_fragmented_gravel, mixed
+stone_gravel_probability: 0.35
+stone_fragment_count: [18, 64]
+stone_fragment_radius_fraction: [0.08, 0.24]
+stone_gravel_spread_fraction: [0.42, 0.92]
+stone_fracture_planes: [0, 8]
+stone_surface_subdivisions: 3
 visual_surface_noise_mm: 0.06
 visual_fold_amplitude_mm: 0.18
 visual_fold_band_mm: 7.0

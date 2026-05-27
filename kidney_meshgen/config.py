@@ -105,6 +105,14 @@ class GeneratorConfig:
     stone_count: int = 3
     stone_radius_mm: Tuple[float, float] = (1.5, 5.0)
     stone_irregularity: float = 0.22
+    stone_material_classes: Tuple[str, ...] = ("COM", "COD", "uric_acid", "struvite_apatite", "cystine")
+    stone_fragmentation: str = "mixed"  # intact, gravel/laser_fragmented_gravel, mixed
+    stone_gravel_probability: float = 0.35
+    stone_fragment_count: Tuple[int, int] = (18, 64)
+    stone_fragment_radius_fraction: Tuple[float, float] = (0.08, 0.24)
+    stone_gravel_spread_fraction: Tuple[float, float] = (0.42, 0.92)
+    stone_fracture_planes: Tuple[int, int] = (0, 8)
+    stone_surface_subdivisions: int = 3
 
     # Scope/control metadata. These are not physics yet; they are
     # limits and defaults a real-time simulator can consume.

@@ -242,6 +242,23 @@ def test_lens_fluid_effects_modify_rgb_frame():
 
 def test_cli_exposes_realism_outputs_and_sensor_flags():
     parser = build_parser()
+    gen_args = parser.parse_args(
+        [
+            "generate",
+            "--out",
+            "case",
+            "--stone-materials",
+            "COM,cystine",
+            "--stone-fragmentation",
+            "gravel",
+            "--stone-gravel-probability",
+            "1.0",
+        ]
+    )
+    assert gen_args.stone_materials == "COM,cystine"
+    assert gen_args.stone_fragmentation == "gravel"
+    assert gen_args.stone_gravel_probability == 1.0
+
     args = parser.parse_args(
         [
             "render-blenderproc",

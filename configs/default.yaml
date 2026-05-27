@@ -68,6 +68,14 @@ geometry_qa_warn_clearance_mm: 0.0
 stone_count: 3
 stone_radius_mm: [1.5, 5.0]
 stone_irregularity: 0.22
+stone_material_classes: [COM, COD, uric_acid, struvite_apatite, cystine]
+stone_fragmentation: mixed
+stone_gravel_probability: 0.35
+stone_fragment_count: [18, 64]
+stone_fragment_radius_fraction: [0.08, 0.24]
+stone_gravel_spread_fraction: [0.42, 0.92]
+stone_fracture_planes: [0, 8]
+stone_surface_subdivisions: 3
 scope_outer_diameter_mm: 3.0
 scope_tip_length_mm: 12.0
 scope_fov_degrees: 85.0

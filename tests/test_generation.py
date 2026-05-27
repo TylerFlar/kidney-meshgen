@@ -3,6 +3,7 @@ from pathlib import Path
 from kidney_meshgen import GeneratorConfig, generate_case
 from kidney_meshgen.anatomy import build_anatomy_graph
 from kidney_meshgen.quality import analyze_geometry_quality
+from kidney_meshgen.stones import STONE_MATERIAL_CLASSES
 
 
 def test_generate_small_case(tmp_path: Path):
@@ -11,6 +12,8 @@ def test_generate_small_case(tmp_path: Path):
         grid_resolution=72,
         min_grid_axis=48,
         stone_count=2,
+        stone_fragmentation="gravel",
+        stone_fragment_count=(5, 8),
         anatomy_id="test_case",
         export_glb=False,
         export_sdf_grid=False,
@@ -29,8 +32,17 @@ def test_generate_small_case(tmp_path: Path):
     assert any(target["anterior_posterior"] == "anterior" for target in manifest["calyx_targets"])
     assert all(target["papilla"] is not None for target in manifest["calyx_targets"])
     assert len(manifest["stones"]) == 2
+    assert manifest["stone_material_model"]["supported_states"] == ["intact", "laser_fragmented_gravel"]
+    assert set(manifest["stone_material_model"]["classes"]) == set(STONE_MATERIAL_CLASSES)
+    for stone in manifest["stones"]:
+        assert stone["material_class"] in STONE_MATERIAL_CLASSES
+        assert stone["state"] == "laser_fragmented_gravel"
+        assert 5 <= stone["fragment_count"] <= 8
+        assert stone["fragment_radius_mm"][1] > stone["fragment_radius_mm"][0] > 0.0
+        assert stone["render_profile"]["base_color"] == stone["color_rgba"]
     assert manifest["simulator"]["task_scene"] == "runtime_scene.json"
     assert (tmp_path / "case" / "lumen_inner.obj").exists()
+    assert (tmp_path / "case" / manifest["stones"][0]["mesh_file"]).exists()
     assert (tmp_path / "case" / "centerline_graph.json").exists()
     assert (tmp_path / "case" / "runtime_scene.json").exists()
     assert (tmp_path / "case" / "waypoints" / "navigation_waypoints.json").exists()

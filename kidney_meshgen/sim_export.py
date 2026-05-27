@@ -13,7 +13,7 @@ from .exporters import scope_start_pose
 from .graph import AnatomyGraph, Edge, edge_length
 from .mesh import MeshBuildResult, compute_bounds
 from .sdf import primitive_bounds, primitive_sdf
-from .stones import StoneInfo
+from .stones import StoneInfo, stone_material_class_summary
 
 
 def _ensure_dir(path: Path) -> None:
@@ -425,6 +425,8 @@ def write_runtime_scene(out_dir: Path, config: GeneratorConfig, graph: AnatomyGr
             "coverage_points": file_map.get("coverage_points_csv"),
             "labels": file_map.get("labels_json"),
         },
+        "stones": [s.to_dict() for s in stone_infos],
+        "stone_material_classes": stone_material_class_summary(),
         "scope_model": {
             "model": "kinematic_piecewise_constant_curvature",
             "outer_diameter_mm": float(config.scope_outer_diameter_mm),
@@ -444,11 +446,6 @@ def write_runtime_scene(out_dir: Path, config: GeneratorConfig, graph: AnatomyGr
             "basket_open_close": [0.0, 1.0],
         },
         "tasks": _runtime_tasks(graph, stone_infos),
-        "future_extension_hooks": [
-            "replace kinematic scope with deformation/contact backend",
-            "add detailed laser fiber and basket mesh animation",
-            "swap Unity materials/shaders for higher-fidelity wet tissue rendering",
-        ],
     }
     path = out_dir / "runtime_scene.json"
     with open(path, "w", encoding="utf-8") as f:

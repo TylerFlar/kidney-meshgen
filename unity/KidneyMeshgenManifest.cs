@@ -13,6 +13,7 @@ namespace KidneyMeshgen
         public string units;
         public float unity_scale_to_meters = 0.001f;
         public SceneAssets assets;
+        public StoneInfo[] stones;
         public ScopeModel scope_model;
         public SceneTask[] tasks;
     }
@@ -84,7 +85,18 @@ namespace KidneyMeshgen
         public float radius_mm;
         public string mesh_file;
         public int label_id;
-        public string material;
+        public string material_class;
+        public string state;
+        public float[] color_rgba;
+        public float roughness;
+        public float specular;
+        public float crystal_bump_strength;
+        public float crystal_bump_distance_mm;
+        public float crystal_bump_scale;
+        public int fracture_plane_count;
+        public int fragment_count;
+        public float[] fragment_radius_mm;
+        public float gravel_spread_mm;
     }
 
     [Serializable]

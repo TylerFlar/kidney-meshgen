@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from kidney_meshgen.stones import STONE_MATERIAL_CLASSES
+
 SENSOR_PROFILES: Dict[str, Dict[str, Any]] = {
     "none": {
         "description": "Pinhole camera with no image-domain endoscope effects.",
@@ -91,9 +93,6 @@ MATERIAL_PRESETS: Dict[str, Dict[str, Any]] = {
         "bump_strength_scale": 1.0,
         "bump_distance_scale": 1.0,
         "bump_scale_scale": 1.0,
-        "stone_base_color": [0.72, 0.63, 0.43, 1.0],
-        "stone_roughness": 0.68,
-        "stone_specular": 0.28,
     },
     "pale_wet_mucosa": {
         "tissue_base_color": [0.82, 0.34, 0.36, 1.0],
@@ -104,9 +103,6 @@ MATERIAL_PRESETS: Dict[str, Dict[str, Any]] = {
         "bump_strength_scale": 0.85,
         "bump_distance_scale": 0.9,
         "bump_scale_scale": 0.9,
-        "stone_base_color": [0.76, 0.68, 0.48, 1.0],
-        "stone_roughness": 0.64,
-        "stone_specular": 0.26,
     },
     "erythematous_gloss": {
         "tissue_base_color": [0.70, 0.18, 0.25, 1.0],
@@ -117,9 +113,6 @@ MATERIAL_PRESETS: Dict[str, Dict[str, Any]] = {
         "bump_strength_scale": 1.15,
         "bump_distance_scale": 1.05,
         "bump_scale_scale": 1.15,
-        "stone_base_color": [0.66, 0.57, 0.39, 1.0],
-        "stone_roughness": 0.72,
-        "stone_specular": 0.24,
     },
     "irrigated_low_contrast": {
         "tissue_base_color": [0.76, 0.31, 0.35, 1.0],
@@ -130,9 +123,6 @@ MATERIAL_PRESETS: Dict[str, Dict[str, Any]] = {
         "bump_strength_scale": 0.7,
         "bump_distance_scale": 0.85,
         "bump_scale_scale": 0.75,
-        "stone_base_color": [0.74, 0.65, 0.46, 1.0],
-        "stone_roughness": 0.70,
-        "stone_specular": 0.22,
     },
 }
 
@@ -447,13 +437,10 @@ def _sample_realism_preset(args: argparse.Namespace, rng: np.random.Generator) -
     light = dict(LIGHT_PRESETS[light_name])
     if bool(args.randomize_realism):
         material["tissue_base_color"] = _jitter_color(rng, material["tissue_base_color"], sigma=0.045)
-        material["stone_base_color"] = _jitter_color(rng, material["stone_base_color"], sigma=0.05)
         for key, lo, hi in (
             ("tissue_roughness", 0.86, 1.14),
             ("tissue_specular", 0.90, 1.10),
             ("tissue_coat_weight", 0.85, 1.20),
-            ("stone_roughness", 0.90, 1.12),
-            ("stone_specular", 0.85, 1.20),
             ("bump_strength_scale", 0.85, 1.18),
             ("bump_distance_scale", 0.90, 1.15),
             ("bump_scale_scale", 0.85, 1.15),
@@ -504,6 +491,45 @@ def _add_noise_bump(material, strength: float, distance: float, scale: float, de
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
+def _mix_color(a: Sequence[float], b: Sequence[float], t: float) -> Tuple[float, float, float, float]:
+    av = np.asarray(a, dtype=float)
+    bv = np.asarray(b, dtype=float)
+    if av.size == 3:
+        av = np.append(av, 1.0)
+    if bv.size == 3:
+        bv = np.append(bv, 1.0)
+    out = np.clip(av * (1.0 - float(t)) + bv * float(t), 0.0, 1.0)
+    out[3] = 1.0
+    return tuple(float(v) for v in out)
+
+
+def _add_noise_color_variation(
+    material,
+    base_color: Sequence[float],
+    secondary_color: Sequence[float],
+    shadow_color: Sequence[float],
+    scale: float,
+    detail: float,
+    strength: float,
+) -> None:
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    bsdf = next((node for node in nodes if node.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None or "Base Color" not in bsdf.inputs:
+        return
+    noise = nodes.new(type="ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = float(scale)
+    noise.inputs["Detail"].default_value = float(detail)
+    noise.inputs["Roughness"].default_value = 0.62
+    ramp = nodes.new(type="ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.18
+    ramp.color_ramp.elements[0].color = _mix_color(base_color, shadow_color, strength)
+    ramp.color_ramp.elements[1].position = 1.0
+    ramp.color_ramp.elements[1].color = _mix_color(base_color, secondary_color, strength)
+    links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+
+
 def _make_tissue_material(bpy, config: Dict, preset: Dict[str, Any]):
     mat = bpy.data.materials.new("wet_mucosa_procedural")
     mat.use_nodes = True
@@ -538,15 +564,40 @@ def _make_tissue_material(bpy, config: Dict, preset: Dict[str, Any]):
     return mat
 
 
-def _make_stone_material(bpy, preset: Dict[str, Any]):
-    mat = bpy.data.materials.new("calcium_oxalate_stone_procedural")
+def _make_stone_material(bpy, stone: Dict[str, Any]):
+    material_class = str(stone["material_class"])
+    if material_class not in STONE_MATERIAL_CLASSES:
+        valid = ", ".join(STONE_MATERIAL_CLASSES)
+        raise ValueError(f"Unknown stone material class {material_class!r}. Expected one of: {valid}")
+    profile = dict(stone["render_profile"])
+    mat = bpy.data.materials.new(f"{stone['id']}_{material_class}_procedural")
     mat.use_nodes = True
-    base_color = tuple(float(v) for v in preset["stone_base_color"])
+    base_color = tuple(float(v) for v in profile["base_color"])
     mat.diffuse_color = base_color
     _set_principled_input(mat, ["Base Color"], base_color)
-    _set_principled_input(mat, ["Roughness"], float(preset["stone_roughness"]))
-    _set_principled_input(mat, ["Specular IOR Level", "Specular"], float(preset["stone_specular"]))
-    _add_noise_bump(mat, strength=0.075, distance=0.38, scale=72.0, detail=9.0)
+    _set_principled_input(mat, ["Roughness"], float(profile["roughness"]))
+    _set_principled_input(mat, ["Specular IOR Level", "Specular"], float(profile["specular"]))
+    if bool(profile.get("waxy", False)):
+        _set_principled_input(mat, ["Coat Weight", "Clearcoat"], 0.10)
+        _set_principled_input(mat, ["Coat Roughness", "Clearcoat Roughness"], 0.18)
+    if bool(profile.get("chalky", False)):
+        _set_principled_input(mat, ["Coat Weight", "Clearcoat"], 0.0)
+    _add_noise_color_variation(
+        mat,
+        base_color=base_color,
+        secondary_color=profile["secondary_color"],
+        shadow_color=profile["shadow_color"],
+        scale=float(profile["color_variation_scale"]),
+        detail=max(float(profile["crystal_bump_detail"]) - 2.0, 2.0),
+        strength=float(profile["color_variation_strength"]),
+    )
+    _add_noise_bump(
+        mat,
+        strength=float(profile["crystal_bump_strength"]),
+        distance=float(profile["crystal_bump_distance_mm"]),
+        scale=float(profile["crystal_bump_scale"]),
+        detail=float(profile["crystal_bump_detail"]),
+    )
     return mat
 
 
@@ -1620,16 +1671,22 @@ def main(argv: Optional[List[str]] = None) -> None:
     _assign_material(lumen, _make_tissue_material(bpy, manifest["config"], realism["material"]))
     _set_category(lumen, 1)
 
+    rendered_stones: List[Dict[str, Any]] = []
     if args.include_stones:
-        stone_material = _make_stone_material(bpy, realism["material"])
-        stone_objects = []
         for stone in manifest.get("stones", []):
             stone_path = case_dir / str(stone.get("mesh_file", ""))
             if stone_path.exists():
                 loaded = _load_obj_assets(bproc, stone_path)
-                stone_objects.extend(loaded)
-        _assign_material(stone_objects, stone_material)
-        _set_category(stone_objects, 1001)
+                _assign_material(loaded, _make_stone_material(bpy, stone))
+                _set_category(loaded, int(stone["label_id"]))
+                rendered_stones.append(
+                    {
+                        "id": stone["id"],
+                        "material_class": stone["material_class"],
+                        "state": stone["state"],
+                        "fragment_count": int(stone["fragment_count"]),
+                    }
+                )
 
     if args.liquid == "volume":
         bounds_min, bounds_max = _scene_bounds_from_plan(plan)
@@ -1692,6 +1749,8 @@ def main(argv: Optional[List[str]] = None) -> None:
             else [int(lens_mapping["orig_res_x"]), int(lens_mapping["orig_res_y"])],
         },
         "realism_randomization": realism,
+        "rendered_stones": rendered_stones,
+        "stone_material_classes": manifest.get("stone_material_model", {}).get("classes"),
         "depth_enabled": bool(args.enable_depth),
         "normals_enabled": bool(args.enable_normals),
         "semantic_enabled": bool(args.enable_semantic),

@@ -11,12 +11,17 @@ from .blenderproc_render import FLUID_PRESETS, LIGHT_PRESETS, MATERIAL_PRESETS, 
 from .config import GeneratorConfig
 from .generator import generate_case
 from .render_path import RenderPathOptions, write_blenderproc_camera_plan
+from .stones import STONE_MATERIAL_CLASSES
 
 
 def _load_config(path: Optional[str]) -> GeneratorConfig:
     if path:
         return GeneratorConfig.from_yaml(path)
     return GeneratorConfig()
+
+
+def _csv_values(value: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in value.replace(";", ",").split(",") if part.strip())
 
 
 def _apply_common_overrides(cfg: GeneratorConfig, args: argparse.Namespace) -> GeneratorConfig:
@@ -32,6 +37,12 @@ def _apply_common_overrides(cfg: GeneratorConfig, args: argparse.Namespace) -> G
         cfg.min_grid_axis = int(args.min_grid_axis)
     if args.stones is not None:
         cfg.stone_count = int(args.stones)
+    if args.stone_materials is not None:
+        cfg.stone_material_classes = _csv_values(args.stone_materials)
+    if args.stone_fragmentation is not None:
+        cfg.stone_fragmentation = args.stone_fragmentation
+    if args.stone_gravel_probability is not None:
+        cfg.stone_gravel_probability = float(args.stone_gravel_probability)
     if args.anatomy_profile is not None:
         cfg.anatomy_realism_profile = args.anatomy_profile
     if args.pelvis_type is not None:
@@ -257,6 +268,20 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--grid", type=int, help="Target sample count along the longest marching-cubes axis. 192-240 is a good high-resolution range.")
     gen.add_argument("--min-grid-axis", type=int, help="Minimum sample count along shorter axes.")
     gen.add_argument("--stones", type=int, help="Number of stones to place.")
+    gen.add_argument(
+        "--stone-materials",
+        help=f"Comma-separated stone material classes to sample from: {', '.join(STONE_MATERIAL_CLASSES)}.",
+    )
+    gen.add_argument(
+        "--stone-fragmentation",
+        choices=["intact", "gravel", "laser_fragmented_gravel", "mixed"],
+        help="Generate intact stones, laser-fragmented gravel fields, or a mixed cohort.",
+    )
+    gen.add_argument(
+        "--stone-gravel-probability",
+        type=float,
+        help="Probability that each stone becomes a laser-fragmented gravel field when --stone-fragmentation mixed.",
+    )
     gen.add_argument("--anatomy-profile", choices=["takazawa", "basic"], help="Anatomy realism profile.")
     gen.add_argument("--pelvis-type", choices=["random", "single", "divided", "type_i", "type_ii"], help="Pelvis morphology family.")
     gen.add_argument("--pelvicalyceal-class", choices=["random", "type_i", "type_ii"], help="Takazawa Type I/II selector.")
