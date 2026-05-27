@@ -46,7 +46,7 @@ class GeneratorConfig:
     open_ureter_start_offset_mm: float = 1.2
 
     # Overall collecting-system morphology
-    anatomy_realism_profile: str = "takazawa"  # takazawa or legacy
+    anatomy_realism_profile: str = "takazawa"  # takazawa or basic
     calyx_count_min: int = 7
     calyx_count_max: int = 13
     pelvis_type: str = "random"  # random, single/divided, type_i/type_ii

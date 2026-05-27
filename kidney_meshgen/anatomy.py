@@ -477,8 +477,8 @@ def build_anatomy_graph(config: GeneratorConfig) -> AnatomyGraph:
 
     side_sign = 1.0 if config.side.lower() == "right" else -1.0
     profile = str(getattr(config, "anatomy_realism_profile", "takazawa")).strip().lower()
-    if profile not in {"takazawa", "legacy", "basic"}:
-        profile = "takazawa"
+    if profile not in {"takazawa", "basic"}:
+        raise ValueError("anatomy_realism_profile must be 'takazawa' or 'basic'")
     pelvis_type, pelvicalyceal_class, takazawa_subtype = _resolve_pelvicalyceal_class(config, rng, profile)
 
     lower_pole_mode = str(getattr(config, "lower_pole_access", "intermediate")).lower()

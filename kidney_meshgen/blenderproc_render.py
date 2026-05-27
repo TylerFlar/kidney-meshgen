@@ -176,6 +176,61 @@ LIGHT_PRESETS: Dict[str, Dict[str, Any]] = {
 }
 
 
+FLUID_PRESETS: Dict[str, Dict[str, Any]] = {
+    "low": {
+        "description": "Lightly cloudy irrigation with sparse floating stone dust and mild lens contamination.",
+        "volume_density_scale": 1.25,
+        "volume_absorption_density_scale": 0.12,
+        "volume_noise_strength": 0.22,
+        "volume_noise_scale": 5.0,
+        "debris_per_mm": 0.18,
+        "debris_max": 180,
+        "debris_radius_mm": [0.035, 0.13],
+        "bubble_per_mm": 0.025,
+        "bubble_max": 32,
+        "bubble_radius_mm": [0.10, 0.38],
+        "lens_droplets": [1, 4],
+        "lens_film_strength": 0.025,
+        "lens_occlusion_events_per_100_frames": 0.45,
+        "lens_occlusion_max": 1,
+    },
+    "medium": {
+        "description": "Cloudy irrigated field with visible floating stone dust, bubbles, droplets, and occasional blur.",
+        "volume_density_scale": 1.75,
+        "volume_absorption_density_scale": 0.18,
+        "volume_noise_strength": 0.34,
+        "volume_noise_scale": 7.0,
+        "debris_per_mm": 0.45,
+        "debris_max": 380,
+        "debris_radius_mm": [0.04, 0.18],
+        "bubble_per_mm": 0.055,
+        "bubble_max": 64,
+        "bubble_radius_mm": [0.12, 0.52],
+        "lens_droplets": [3, 8],
+        "lens_film_strength": 0.045,
+        "lens_occlusion_events_per_100_frames": 1.2,
+        "lens_occlusion_max": 3,
+    },
+    "high": {
+        "description": "Poorer visibility with dense dust, more bubbles, stronger film, and repeated near-lens occlusion.",
+        "volume_density_scale": 2.6,
+        "volume_absorption_density_scale": 0.26,
+        "volume_noise_strength": 0.46,
+        "volume_noise_scale": 9.0,
+        "debris_per_mm": 0.90,
+        "debris_max": 700,
+        "debris_radius_mm": [0.05, 0.24],
+        "bubble_per_mm": 0.11,
+        "bubble_max": 110,
+        "bubble_radius_mm": [0.14, 0.72],
+        "lens_droplets": [6, 14],
+        "lens_film_strength": 0.075,
+        "lens_occlusion_events_per_100_frames": 2.6,
+        "lens_occlusion_max": 5,
+    },
+}
+
+
 RESEARCH_BASIS = [
     {
         "topic": "camera_intrinsics_and_brown_conrady_distortion",
@@ -200,6 +255,23 @@ RESEARCH_BASIS = [
         "sources": [
             "EMVA 1288 camera characterization model",
             "Hasinoff 2014 photon/read noise image formation model",
+        ],
+    },
+    {
+        "topic": "irrigation_dust_and_lens_soiling",
+        "note": "RIRS visibility depends on irrigation; stone dust floats under irrigation, while endoscopic views are degraded by lens condensation and retained contaminants.",
+        "sources": [
+            "https://icurology.org/DOIx.php?id=10.4111%2Ficu.20200526",
+            "https://journals.sagepub.com/doi/10.1089/end.2009.0594",
+            "https://pubmed.ncbi.nlm.nih.gov/30020986/",
+        ],
+    },
+    {
+        "topic": "cloudy_irrigation_volume_rendering",
+        "note": "Cloudy irrigation uses volumetric scattering/absorption with sparse explicit bubble and debris geometry.",
+        "sources": [
+            "https://docs.blender.org/manual/en/latest/render/shader_nodes/shader/volume_scatter.html",
+            "https://docs.blender.org/manual/en/latest/render/materials/components/volume.html",
         ],
     },
 ]
@@ -360,6 +432,14 @@ def _jitter_color(rng: np.random.Generator, color: Sequence[float], sigma: float
     return [float(v) for v in rgba]
 
 
+def _normalize(v: np.ndarray, fallback: Sequence[float] = (0.0, 0.0, 1.0)) -> np.ndarray:
+    arr = np.asarray(v, dtype=float)
+    norm = float(np.linalg.norm(arr))
+    if norm < 1e-8:
+        return np.asarray(fallback, dtype=float)
+    return arr / norm
+
+
 def _sample_realism_preset(args: argparse.Namespace, rng: np.random.Generator) -> Dict[str, Any]:
     material_name = _random_choice_name(rng, str(args.material_preset), MATERIAL_PRESETS)
     light_name = _random_choice_name(rng, str(args.light_preset), LIGHT_PRESETS)
@@ -424,7 +504,7 @@ def _add_noise_bump(material, strength: float, distance: float, scale: float, de
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
-def _make_tissue_material(bpy, liquid: str, config: Dict, preset: Dict[str, Any]):
+def _make_tissue_material(bpy, config: Dict, preset: Dict[str, Any]):
     mat = bpy.data.materials.new("wet_mucosa_procedural")
     mat.use_nodes = True
     base_color = tuple(float(v) for v in preset["tissue_base_color"])
@@ -433,20 +513,19 @@ def _make_tissue_material(bpy, liquid: str, config: Dict, preset: Dict[str, Any]
         mat.use_screen_refraction = True
     except AttributeError:
         pass
-    wet_scale = 1.0 if liquid != "off" else 1.45
     _set_principled_input(mat, ["Base Color"], base_color)
-    _set_principled_input(mat, ["Roughness"], min(float(preset["tissue_roughness"]) * wet_scale, 0.68))
+    _set_principled_input(mat, ["Roughness"], min(float(preset["tissue_roughness"]), 0.68))
     _set_principled_input(mat, ["Metallic"], 0.0)
     _set_principled_input(mat, ["Alpha"], 1.0)
     _set_principled_input(
         mat,
         ["Specular IOR Level", "Specular"],
-        float(preset["tissue_specular"]) if liquid != "off" else min(float(preset["tissue_specular"]) * 0.62, 0.55),
+        float(preset["tissue_specular"]),
     )
     _set_principled_input(
         mat,
         ["Coat Weight", "Clearcoat"],
-        float(preset["tissue_coat_weight"]) if liquid != "off" else min(float(preset["tissue_coat_weight"]) * 0.18, 0.08),
+        float(preset["tissue_coat_weight"]),
     )
     _set_principled_input(mat, ["Coat Roughness", "Clearcoat Roughness"], float(preset["tissue_coat_roughness"]))
     _add_noise_bump(
@@ -500,14 +579,192 @@ def _scene_bounds_from_plan(plan: Dict) -> Tuple[np.ndarray, np.ndarray]:
     return np.min(pts, axis=0) - margin, np.max(pts, axis=0) + margin
 
 
-def _add_liquid_volume(bpy, bounds_min: np.ndarray, bounds_max: np.ndarray, density: float) -> None:
+def _plan_path_length_mm(plan: Dict) -> float:
+    frames = list(plan.get("frames", []))
+    if len(frames) < 2:
+        return 0.0
+    distances = [frame.get("distance_mm") for frame in frames]
+    if all(value is not None for value in distances):
+        values = [float(value) for value in distances]
+        return max(0.0, max(values) - min(values))
+    points = np.asarray([frame["position_mm"] for frame in frames], dtype=float)
+    return float(np.sum(np.linalg.norm(np.diff(points, axis=0), axis=1)))
+
+
+def _count_from_path(path_length_mm: float, per_mm: float, maximum: int) -> int:
+    if float(path_length_mm) <= 0.0 or float(per_mm) <= 0.0 or int(maximum) <= 0:
+        return 0
+    return int(min(int(maximum), max(0, round(float(path_length_mm) * float(per_mm)))))
+
+
+def _lens_interval(rng: np.random.Generator, frame_count: int, persistent_probability: float = 0.7) -> Tuple[int, int]:
+    if frame_count <= 1 or float(rng.random()) < float(persistent_probability):
+        return 0, max(int(frame_count), 1)
+    min_duration = max(2, int(frame_count * 0.12))
+    max_duration = max(min_duration + 1, int(frame_count * 0.55))
+    duration = int(rng.integers(min_duration, max_duration + 1))
+    start = int(rng.integers(0, max(1, frame_count - duration + 1)))
+    return start, min(frame_count, start + duration)
+
+
+def _make_lens_droplets(
+    rng: np.random.Generator,
+    preset: Dict[str, Any],
+    frame_count: int,
+) -> List[Dict[str, Any]]:
+    low, high = [int(v) for v in preset.get("lens_droplets", [0, 0])]
+    count = int(rng.integers(min(low, high), max(low, high) + 1)) if max(low, high) > 0 else 0
+    droplets: List[Dict[str, Any]] = []
+    for _ in range(count):
+        radius = float(rng.uniform(0.014, 0.058))
+        rx = radius * float(rng.uniform(0.75, 1.55))
+        ry = radius * float(rng.uniform(0.80, 1.65))
+        start, end = _lens_interval(rng, frame_count)
+        droplets.append(
+            {
+                "cx": float(rng.uniform(0.10, 0.90)),
+                "cy": float(rng.uniform(0.10, 0.90)),
+                "rx": rx,
+                "ry": ry,
+                "angle_rad": float(rng.uniform(0.0, math.tau)),
+                "alpha": float(rng.uniform(0.20, 0.44)),
+                "rim_gain": float(rng.uniform(0.20, 0.52)),
+                "highlight_gain": float(rng.uniform(0.32, 0.80)),
+                "highlight_dx": float(rng.uniform(-0.35, -0.12)),
+                "highlight_dy": float(rng.uniform(-0.38, -0.10)),
+                "start_frame": int(start),
+                "end_frame": int(end),
+            }
+        )
+    return droplets
+
+
+def _make_lens_occlusions(
+    rng: np.random.Generator,
+    preset: Dict[str, Any],
+    frame_count: int,
+) -> List[Dict[str, Any]]:
+    max_events = int(preset.get("lens_occlusion_max", 0))
+    expected = float(preset.get("lens_occlusion_events_per_100_frames", 0.0)) * max(int(frame_count), 1) / 100.0
+    event_count = int(min(max_events, rng.poisson(expected))) if max_events > 0 and expected > 0.0 else 0
+    if event_count == 0 and max_events > 0 and expected >= 0.7 and float(rng.random()) < min(expected, 0.9):
+        event_count = 1
+    events: List[Dict[str, Any]] = []
+    for _ in range(event_count):
+        duration = int(rng.integers(max(2, int(frame_count * 0.04)), max(3, int(frame_count * 0.18)) + 1))
+        start = int(rng.integers(0, max(1, frame_count - duration + 1)))
+        side = str(rng.choice(["left", "right", "top", "bottom", "center"]))
+        if side == "left":
+            cx, cy = float(rng.uniform(-0.10, 0.18)), float(rng.uniform(0.15, 0.85))
+        elif side == "right":
+            cx, cy = float(rng.uniform(0.82, 1.10)), float(rng.uniform(0.15, 0.85))
+        elif side == "top":
+            cx, cy = float(rng.uniform(0.15, 0.85)), float(rng.uniform(-0.08, 0.20))
+        elif side == "bottom":
+            cx, cy = float(rng.uniform(0.15, 0.85)), float(rng.uniform(0.80, 1.08))
+        else:
+            cx, cy = float(rng.uniform(0.30, 0.70)), float(rng.uniform(0.30, 0.70))
+        events.append(
+            {
+                "cx": cx,
+                "cy": cy,
+                "rx": float(rng.uniform(0.14, 0.36)),
+                "ry": float(rng.uniform(0.12, 0.32)),
+                "angle_rad": float(rng.uniform(0.0, math.tau)),
+                "alpha": float(rng.uniform(0.22, 0.54)),
+                "color": [float(v) for v in rng.uniform([0.70, 0.78, 0.78], [0.90, 0.96, 0.98])],
+                "start_frame": int(start),
+                "end_frame": int(min(frame_count, start + duration)),
+            }
+        )
+    return events
+
+
+def _resolve_fluid_model(args: argparse.Namespace, plan: Dict, rng: np.random.Generator) -> Dict[str, Any]:
+    requested = str(getattr(args, "fluid_preset", "auto"))
+    if requested == "auto":
+        preset_name = "medium"
+    elif requested in FLUID_PRESETS:
+        preset_name = requested
+    else:
+        raise ValueError(f"unknown fluid preset {requested!r}")
+
+    preset = dict(FLUID_PRESETS[preset_name])
+    liquid = str(getattr(args, "liquid", "film"))
+    volume_enabled = liquid == "volume"
+    enhancements_enabled = bool(volume_enabled)
+    frame_count = int(plan.get("frame_count", len(plan.get("frames", []))))
+    path_length = _plan_path_length_mm(plan)
+    base_density = max(float(getattr(args, "volume_density", 0.002)), 0.0)
+    volume_density = base_density * float(preset.get("volume_density_scale", 1.0))
+    debris_count = _count_from_path(path_length, float(preset.get("debris_per_mm", 0.0)), int(preset.get("debris_max", 0)))
+    bubble_count = _count_from_path(path_length, float(preset.get("bubble_per_mm", 0.0)), int(preset.get("bubble_max", 0)))
+
+    if not enhancements_enabled:
+        debris_count = 0
+        bubble_count = 0
+
+    lens = {
+        "enabled": bool(enhancements_enabled),
+        "film_strength": float(preset.get("lens_film_strength", 0.0)) if enhancements_enabled else 0.0,
+        "film_seed": int(rng.integers(0, 2**31 - 1)),
+        "film_color": [0.78, 0.91, 0.96],
+        "droplets": _make_lens_droplets(rng, preset, frame_count) if enhancements_enabled else [],
+        "occlusions": _make_lens_occlusions(rng, preset, frame_count) if enhancements_enabled else [],
+    }
+    return {
+        "enabled": bool(enhancements_enabled),
+        "volume_enabled": bool(volume_enabled),
+        "requested_preset": requested,
+        "preset": preset_name,
+        "description": preset.get("description"),
+        "path_length_mm": float(path_length),
+        "frame_count": int(frame_count),
+        "volume_density": float(volume_density),
+        "volume_color": [0.78, 0.93, 1.0, 1.0],
+        "volume_absorption_density": float(volume_density) * float(preset.get("volume_absorption_density_scale", 0.0)),
+        "volume_noise_strength": float(preset.get("volume_noise_strength", 0.0)) if enhancements_enabled else 0.0,
+        "volume_noise_scale": float(preset.get("volume_noise_scale", 4.0)),
+        "debris_count": int(debris_count),
+        "debris_radius_mm": list(preset.get("debris_radius_mm", [0.04, 0.16])),
+        "bubble_count": int(bubble_count),
+        "bubble_radius_mm": list(preset.get("bubble_radius_mm", [0.12, 0.45])),
+        "lens": lens,
+        "rgb_only_lens_effects": bool(enhancements_enabled),
+    }
+
+
+def _set_volume_density_from_noise(nodes, links, volume_node, density: float, noise_strength: float, noise_scale: float) -> None:
+    if float(noise_strength) <= 0.0:
+        volume_node.inputs["Density"].default_value = float(density)
+        return
+    noise = nodes.new(type="ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = float(noise_scale)
+    noise.inputs["Detail"].default_value = 6.0
+    noise.inputs["Roughness"].default_value = 0.62
+    noise_weight = nodes.new(type="ShaderNodeMath")
+    noise_weight.operation = "MULTIPLY"
+    noise_weight.inputs[1].default_value = float(noise_strength)
+    base = nodes.new(type="ShaderNodeMath")
+    base.operation = "ADD"
+    base.inputs[0].default_value = max(0.05, 1.0 - float(noise_strength) * 0.5)
+    density_scale = nodes.new(type="ShaderNodeMath")
+    density_scale.operation = "MULTIPLY"
+    density_scale.inputs[1].default_value = float(density)
+    links.new(noise.outputs["Fac"], noise_weight.inputs[0])
+    links.new(noise_weight.outputs["Value"], base.inputs[1])
+    links.new(base.outputs["Value"], density_scale.inputs[0])
+    links.new(density_scale.outputs["Value"], volume_node.inputs["Density"])
+
+
+def _add_liquid_volume(bpy, bounds_min: np.ndarray, bounds_max: np.ndarray, fluid_model: Dict[str, Any]) -> None:
     center = (bounds_min + bounds_max) * 0.5
     extents = np.maximum(bounds_max - bounds_min, 1.0)
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=center)
     cube = bpy.context.object
-    cube.name = "subtle_irrigation_volume"
+    cube.name = "cloudy_irrigation_volume"
     cube.dimensions = extents
-    mat = bpy.data.materials.new("clear_irrigation_volume")
+    mat = bpy.data.materials.new("cloudy_irrigation_volume")
     mat.use_nodes = True
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -515,13 +772,258 @@ def _add_liquid_volume(bpy, bounds_min: np.ndarray, bounds_max: np.ndarray, dens
     output = nodes.new(type="ShaderNodeOutputMaterial")
     transparent = nodes.new(type="ShaderNodeBsdfTransparent")
     volume = nodes.new(type="ShaderNodeVolumeScatter")
-    volume.inputs["Color"].default_value = (0.78, 0.93, 1.0, 1.0)
-    volume.inputs["Density"].default_value = density
+    volume.inputs["Color"].default_value = tuple(float(v) for v in fluid_model.get("volume_color", [0.78, 0.93, 1.0, 1.0]))
+    for input_socket in volume.inputs:
+        if "Anisotropy" in input_socket.name:
+            input_socket.default_value = 0.18
+            break
+    _set_volume_density_from_noise(
+        nodes,
+        links,
+        volume,
+        float(fluid_model.get("volume_density", 0.002)),
+        float(fluid_model.get("volume_noise_strength", 0.0)),
+        float(fluid_model.get("volume_noise_scale", 4.0)),
+    )
     links.new(transparent.outputs["BSDF"], output.inputs["Surface"])
-    links.new(volume.outputs["Volume"], output.inputs["Volume"])
+    absorption_density = float(fluid_model.get("volume_absorption_density", 0.0))
+    if absorption_density > 0.0:
+        absorption = nodes.new(type="ShaderNodeVolumeAbsorption")
+        absorption.inputs["Color"].default_value = (0.68, 0.88, 1.0, 1.0)
+        absorption.inputs["Density"].default_value = absorption_density
+        add_volume = nodes.new(type="ShaderNodeAddShader")
+        links.new(volume.outputs["Volume"], add_volume.inputs[0])
+        links.new(absorption.outputs["Volume"], add_volume.inputs[1])
+        links.new(add_volume.outputs["Shader"], output.inputs["Volume"])
+    else:
+        links.new(volume.outputs["Volume"], output.inputs["Volume"])
     mat.blend_method = "BLEND"
     cube.data.materials.append(mat)
     cube.hide_select = True
+
+
+def _icosahedron_geometry() -> Tuple[np.ndarray, List[Tuple[int, int, int]]]:
+    phi = (1.0 + math.sqrt(5.0)) * 0.5
+    vertices = np.asarray(
+        [
+            (-1, phi, 0),
+            (1, phi, 0),
+            (-1, -phi, 0),
+            (1, -phi, 0),
+            (0, -1, phi),
+            (0, 1, phi),
+            (0, -1, -phi),
+            (0, 1, -phi),
+            (phi, 0, -1),
+            (phi, 0, 1),
+            (-phi, 0, -1),
+            (-phi, 0, 1),
+        ],
+        dtype=float,
+    )
+    vertices = vertices / np.linalg.norm(vertices, axis=1)[:, None]
+    faces = [
+        (0, 11, 5),
+        (0, 5, 1),
+        (0, 1, 7),
+        (0, 7, 10),
+        (0, 10, 11),
+        (1, 5, 9),
+        (5, 11, 4),
+        (11, 10, 2),
+        (10, 7, 6),
+        (7, 1, 8),
+        (3, 9, 4),
+        (3, 4, 2),
+        (3, 2, 6),
+        (3, 6, 8),
+        (3, 8, 9),
+        (4, 9, 5),
+        (2, 4, 11),
+        (6, 2, 10),
+        (8, 6, 7),
+        (9, 8, 1),
+    ]
+    return vertices, faces
+
+
+def _random_rotation_matrix(rng: np.random.Generator) -> np.ndarray:
+    import mathutils
+
+    euler = mathutils.Euler(
+        (
+            float(rng.uniform(0.0, math.tau)),
+            float(rng.uniform(0.0, math.tau)),
+            float(rng.uniform(0.0, math.tau)),
+        ),
+        "XYZ",
+    )
+    return np.asarray(euler.to_matrix(), dtype=float)
+
+
+def _sample_fluid_centers(
+    plan: Dict,
+    count: int,
+    rng: np.random.Generator,
+    min_ahead_mm: float,
+    max_ahead_mm: float,
+    radius_fraction: float,
+) -> np.ndarray:
+    frames = list(plan.get("frames", []))
+    if int(count) <= 0 or not frames:
+        return np.empty((0, 3), dtype=float)
+    centers = np.zeros((int(count), 3), dtype=float)
+    for idx in range(int(count)):
+        frame = frames[int(rng.integers(0, len(frames)))]
+        pos = np.asarray(frame["position_mm"], dtype=float)
+        forward = _normalize(np.asarray(frame.get("forward", [0.0, 0.0, 1.0]), dtype=float))
+        up = _normalize(np.asarray(frame.get("up", [0.0, 1.0, 0.0]), dtype=float))
+        right = _normalize(np.cross(forward, up), (1.0, 0.0, 0.0))
+        up = _normalize(np.cross(right, forward), (0.0, 1.0, 0.0))
+        radius = max(float(frame.get("radius_mm", 1.5)), 0.25)
+        max_lateral = max(0.06, min(radius * float(radius_fraction), 4.0))
+        theta = float(rng.uniform(0.0, math.tau))
+        radial = max_lateral * math.sqrt(float(rng.uniform(0.0, 1.0)))
+        ahead = float(rng.uniform(float(min_ahead_mm), float(max_ahead_mm)))
+        centers[idx] = pos + forward * ahead + right * (math.cos(theta) * radial) + up * (math.sin(theta) * radial)
+    return centers
+
+
+def _create_icosphere_batch(
+    bpy,
+    collection,
+    name: str,
+    centers: np.ndarray,
+    radii: np.ndarray,
+    material,
+    rng: np.random.Generator,
+    category_id: int,
+    smooth: bool,
+    irregularity: float,
+) -> Optional[Any]:
+    centers = np.asarray(centers, dtype=float)
+    radii = np.asarray(radii, dtype=float)
+    if len(centers) == 0:
+        return None
+    base_vertices, base_faces = _icosahedron_geometry()
+    vertices: List[Tuple[float, float, float]] = []
+    faces: List[Tuple[int, int, int]] = []
+    for center, radius in zip(centers, radii):
+        local = base_vertices.copy()
+        if float(irregularity) > 0.0:
+            local *= rng.uniform(1.0 - float(irregularity), 1.0 + float(irregularity), size=(len(local), 1))
+            stretch = rng.uniform(0.70, 1.35, size=3)
+        else:
+            stretch = rng.uniform(0.88, 1.12, size=3)
+        rotation = _random_rotation_matrix(rng)
+        transformed = ((local * stretch) @ rotation.T) * float(radius) + center
+        offset = len(vertices)
+        vertices.extend((float(v[0]), float(v[1]), float(v[2])) for v in transformed)
+        faces.extend((a + offset, b + offset, c + offset) for a, b, c in base_faces)
+
+    mesh = bpy.data.meshes.new(f"{name}_mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    if bool(smooth):
+        for polygon in mesh.polygons:
+            polygon.use_smooth = True
+    obj = bpy.data.objects.new(name, mesh)
+    collection.objects.link(obj)
+    obj.data.materials.append(material)
+    obj["category_id"] = int(category_id)
+    obj.hide_select = True
+    return obj
+
+
+def _make_debris_material(bpy):
+    mat = bpy.data.materials.new("suspended_stone_dust")
+    mat.use_nodes = True
+    _set_principled_input(mat, ["Base Color"], (0.74, 0.66, 0.46, 1.0))
+    _set_principled_input(mat, ["Roughness"], 0.78)
+    _set_principled_input(mat, ["Specular IOR Level", "Specular"], 0.18)
+    _add_noise_bump(mat, strength=0.12, distance=0.05, scale=95.0, detail=5.0)
+    return mat
+
+
+def _make_bubble_material(bpy):
+    mat = bpy.data.materials.new("air_bubble_in_irrigation")
+    mat.use_nodes = True
+    mat.diffuse_color = (0.84, 0.96, 1.0, 0.24)
+    try:
+        mat.use_screen_refraction = True
+    except AttributeError:
+        pass
+    mat.blend_method = "BLEND"
+    mat.use_nodes = True
+    _set_principled_input(mat, ["Base Color"], (0.86, 0.97, 1.0, 0.24))
+    _set_principled_input(mat, ["Alpha"], 0.24)
+    _set_principled_input(mat, ["Roughness"], 0.015)
+    _set_principled_input(mat, ["Specular IOR Level", "Specular"], 1.0)
+    _set_principled_input(mat, ["Transmission Weight", "Transmission"], 0.70)
+    _set_principled_input(mat, ["IOR"], 1.0)
+    return mat
+
+
+def _add_suspended_debris_and_bubbles(
+    bpy,
+    plan: Dict,
+    fluid_model: Dict[str, Any],
+    rng: np.random.Generator,
+) -> None:
+    if not bool(fluid_model.get("enabled", False)):
+        return
+    collection = bpy.data.collections.new("irrigation_suspended_debris")
+    bpy.context.scene.collection.children.link(collection)
+
+    debris_count = int(fluid_model.get("debris_count", 0))
+    if debris_count > 0:
+        debris_centers = _sample_fluid_centers(
+            plan,
+            debris_count,
+            rng,
+            min_ahead_mm=1.5,
+            max_ahead_mm=16.0,
+            radius_fraction=0.58,
+        )
+        lo, hi = [float(v) for v in fluid_model.get("debris_radius_mm", [0.04, 0.16])]
+        debris_radii = rng.uniform(min(lo, hi), max(lo, hi), size=debris_count)
+        _create_icosphere_batch(
+            bpy,
+            collection,
+            "suspended_stone_dust",
+            debris_centers,
+            debris_radii,
+            _make_debris_material(bpy),
+            rng,
+            category_id=1002,
+            smooth=False,
+            irregularity=0.28,
+        )
+
+    bubble_count = int(fluid_model.get("bubble_count", 0))
+    if bubble_count > 0:
+        bubble_centers = _sample_fluid_centers(
+            plan,
+            bubble_count,
+            rng,
+            min_ahead_mm=2.2,
+            max_ahead_mm=20.0,
+            radius_fraction=0.50,
+        )
+        lo, hi = [float(v) for v in fluid_model.get("bubble_radius_mm", [0.12, 0.45])]
+        bubble_radii = rng.uniform(min(lo, hi), max(lo, hi), size=bubble_count)
+        _create_icosphere_batch(
+            bpy,
+            collection,
+            "irrigation_air_bubbles",
+            bubble_centers,
+            bubble_radii,
+            _make_bubble_material(bpy),
+            rng,
+            category_id=1003,
+            smooth=True,
+            irregularity=0.0,
+        )
 
 
 def _configure_color_management(bpy) -> None:
@@ -712,6 +1214,114 @@ def _as_float_image(image: np.ndarray) -> np.ndarray:
     return np.clip(arr, 0.0, 1.0)
 
 
+def _temporal_fade(frame_index: int, start_frame: int, end_frame: int) -> float:
+    start = int(start_frame)
+    end = int(end_frame)
+    if frame_index < start or frame_index >= end:
+        return 0.0
+    duration = max(end - start, 1)
+    ramp = max(1, int(duration * 0.18))
+    fade_in = min(1.0, (frame_index - start + 1) / float(ramp))
+    fade_out = min(1.0, (end - frame_index) / float(ramp))
+    return float(min(fade_in, fade_out))
+
+
+def _rotated_ellipse_distance(
+    xx: np.ndarray,
+    yy: np.ndarray,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    angle_rad: float,
+) -> np.ndarray:
+    dx = xx - float(cx)
+    dy = yy - float(cy)
+    c = math.cos(float(angle_rad))
+    s = math.sin(float(angle_rad))
+    xr = c * dx + s * dy
+    yr = -s * dx + c * dy
+    return np.sqrt((xr / max(float(rx), 1e-6)) ** 2 + (yr / max(float(ry), 1e-6)) ** 2)
+
+
+def _apply_lens_fluid_effects(image: np.ndarray, fluid_model: Dict[str, Any], frame_index: int) -> np.ndarray:
+    out = _as_float_image(image).copy()
+    if not bool(fluid_model.get("enabled", False)):
+        return out
+    lens = dict(fluid_model.get("lens", {}))
+    if not bool(lens.get("enabled", False)):
+        return out
+    height, width = out.shape[:2]
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
+    xx = xx / max(float(width - 1), 1.0)
+    yy = yy / max(float(height - 1), 1.0)
+
+    film_strength = float(lens.get("film_strength", 0.0))
+    if film_strength > 0.0:
+        seed_phase = (int(lens.get("film_seed", 0)) % 10007) / 10007.0
+        phase = seed_phase + float(frame_index) * 0.013
+        veil = (
+            0.48
+            + 0.18 * np.sin((xx * 5.0 + yy * 1.7 + phase) * math.tau)
+            + 0.12 * np.sin((xx * -1.8 + yy * 4.1 + phase * 1.7) * math.tau)
+        )
+        edge_bias = np.clip(np.sqrt((xx - 0.5) ** 2 + (yy - 0.5) ** 2) * 1.8, 0.0, 1.0)
+        veil = np.clip(veil * (0.55 + 0.45 * edge_bias), 0.0, 1.0) * film_strength
+        color = np.asarray(lens.get("film_color", [0.78, 0.91, 0.96]), dtype=np.float32)
+        out = out * (1.0 - veil[..., None]) + color * veil[..., None]
+
+    for droplet in lens.get("droplets", []):
+        fade = _temporal_fade(frame_index, int(droplet.get("start_frame", 0)), int(droplet.get("end_frame", 1)))
+        if fade <= 0.0:
+            continue
+        distance = _rotated_ellipse_distance(
+            xx,
+            yy,
+            float(droplet.get("cx", 0.5)),
+            float(droplet.get("cy", 0.5)),
+            float(droplet.get("rx", 0.03)),
+            float(droplet.get("ry", 0.03)),
+            float(droplet.get("angle_rad", 0.0)),
+        )
+        alpha = float(droplet.get("alpha", 0.3)) * fade
+        body = np.clip(1.0 - distance, 0.0, 1.0) ** 0.65
+        ring = np.exp(-((distance - 1.0) ** 2) / (2.0 * 0.045**2))
+        cx = float(droplet.get("cx", 0.5)) + float(droplet.get("highlight_dx", -0.2)) * float(droplet.get("rx", 0.03))
+        cy = float(droplet.get("cy", 0.5)) + float(droplet.get("highlight_dy", -0.2)) * float(droplet.get("ry", 0.03))
+        highlight = np.exp(
+            -0.5
+            * (
+                ((xx - cx) / max(float(droplet.get("rx", 0.03)) * 0.20, 1e-5)) ** 2
+                + ((yy - cy) / max(float(droplet.get("ry", 0.03)) * 0.20, 1e-5)) ** 2
+            )
+        )
+        tint = np.asarray([0.82, 0.94, 1.0], dtype=np.float32)
+        out = out * (1.0 - body[..., None] * alpha * 0.12) + tint * (body[..., None] * alpha * 0.12)
+        specular = ring * alpha * float(droplet.get("rim_gain", 0.35))
+        specular += highlight * alpha * float(droplet.get("highlight_gain", 0.55))
+        out = out + specular[..., None]
+
+    for occlusion in lens.get("occlusions", []):
+        fade = _temporal_fade(frame_index, int(occlusion.get("start_frame", 0)), int(occlusion.get("end_frame", 1)))
+        if fade <= 0.0:
+            continue
+        distance = _rotated_ellipse_distance(
+            xx,
+            yy,
+            float(occlusion.get("cx", 0.5)),
+            float(occlusion.get("cy", 0.5)),
+            float(occlusion.get("rx", 0.22)),
+            float(occlusion.get("ry", 0.18)),
+            float(occlusion.get("angle_rad", 0.0)),
+        )
+        mask = np.exp(-0.5 * distance**2)
+        alpha = float(occlusion.get("alpha", 0.35)) * fade
+        color = np.asarray(occlusion.get("color", [0.80, 0.90, 0.92]), dtype=np.float32)
+        out = out * (1.0 - mask[..., None] * alpha) + color * (mask[..., None] * alpha)
+
+    return np.clip(out, 0.0, 1.0)
+
+
 def _to_uint_image(image: np.ndarray, color_depth: int) -> np.ndarray:
     max_value = 65535 if int(color_depth) == 16 else 255
     dtype = np.uint16 if int(color_depth) == 16 else np.uint8
@@ -818,12 +1428,14 @@ def _write_rgb_frames(
     frames: Sequence[np.ndarray],
     out_dir: Path,
     sensor_model: Dict[str, Any],
+    fluid_model: Dict[str, Any],
     color_depth: int,
     rng: np.random.Generator,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for idx, frame in enumerate(frames):
-        rgb = _apply_rgb_sensor_effects(np.asarray(frame), sensor_model, rng)
+        rgb = _apply_lens_fluid_effects(np.asarray(frame), fluid_model, idx)
+        rgb = _apply_rgb_sensor_effects(rgb, sensor_model, rng)
         _write_png(_frame_path(out_dir, "frame_", idx, "png"), _to_uint_image(rgb, color_depth))
 
 
@@ -872,6 +1484,7 @@ def _render_and_write_outputs(
     out_dir: Path,
     rgb_dir: Path,
     sensor_model: Dict[str, Any],
+    fluid_model: Dict[str, Any],
     lens_mapping: Optional[Dict[str, Any]],
     rng: np.random.Generator,
 ) -> Dict[str, str]:
@@ -911,7 +1524,7 @@ def _render_and_write_outputs(
     data = _apply_lens_distortion_to_data(bproc, data, lens_mapping)
     if "colors" not in data:
         raise RuntimeError("BlenderProc render did not return RGB color frames.")
-    _write_rgb_frames(data["colors"], rgb_dir, sensor_model, int(args.color_depth), rng)
+    _write_rgb_frames(data["colors"], rgb_dir, sensor_model, fluid_model, int(args.color_depth), rng)
     if args.enable_depth:
         if "depth" not in data:
             raise RuntimeError("Depth output was requested, but BlenderProc did not return depth frames.")
@@ -933,7 +1546,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pose-file", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--include-stones", action="store_true")
-    parser.add_argument("--liquid", choices=["off", "film", "volume"], default="film")
+    parser.add_argument("--liquid", choices=["film", "volume"], default="film")
+    parser.add_argument("--fluid-preset", choices=["auto", *sorted(FLUID_PRESETS)], default="auto")
     parser.add_argument("--width", type=int, default=1920)
     parser.add_argument("--height", type=int, default=1080)
     parser.add_argument("--samples", type=int, default=128)
@@ -994,6 +1608,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         float(plan.get("fov_degrees", 85.0)),
     )
     realism = _sample_realism_preset(args, rng)
+    fluid_model = _resolve_fluid_model(args, plan, rng)
 
     bproc.init()
     _configure_color_management(bpy)
@@ -1002,7 +1617,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if lumen_path is None or lumen_path.suffix.lower() != ".obj":
         raise RuntimeError("BlenderProc renderer currently expects lumen_inner.obj in the generated case.")
     lumen = _load_obj_assets(bproc, lumen_path)
-    _assign_material(lumen, _make_tissue_material(bpy, args.liquid, manifest["config"], realism["material"]))
+    _assign_material(lumen, _make_tissue_material(bpy, manifest["config"], realism["material"]))
     _set_category(lumen, 1)
 
     if args.include_stones:
@@ -1018,7 +1633,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     if args.liquid == "volume":
         bounds_min, bounds_max = _scene_bounds_from_plan(plan)
-        _add_liquid_volume(bpy, bounds_min, bounds_max, float(args.volume_density))
+        _add_liquid_volume(bpy, bounds_min, bounds_max, fluid_model)
+        _add_suspended_debris_and_bubbles(bpy, plan, fluid_model, rng)
 
     _configure_renderer(bproc, bpy, args)
     _configure_motion_artifacts(bproc, sensor_model)
@@ -1045,7 +1661,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     )
     _keyframe_lights(bpy, plan, spot, point)
 
-    output_paths = _render_and_write_outputs(bproc, args, out_dir, rgb_dir, sensor_model, lens_mapping, rng)
+    output_paths = _render_and_write_outputs(bproc, args, out_dir, rgb_dir, sensor_model, fluid_model, lens_mapping, rng)
     mask_path = _write_sensor_mask(out_dir, sensor_model, int(args.width), int(args.height))
     if mask_path is not None:
         output_paths["sensor_mask"] = mask_path
@@ -1058,6 +1674,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         "frame_count": int(plan.get("frame_count", len(plan.get("frames", [])))),
         "include_stones": bool(args.include_stones),
         "liquid": args.liquid,
+        "fluid": fluid_model,
         "resolution": [int(args.width), int(args.height)],
         "samples": int(args.samples),
         "noise_threshold": float(args.noise_threshold),
@@ -1088,6 +1705,8 @@ def main(argv: Optional[List[str]] = None) -> None:
             "background": 0,
             "lumen_mucosa": 1,
             "stone": 1001,
+            "suspended_stone_dust": 1002,
+            "irrigation_air_bubble": 1003,
         },
         "research_basis": RESEARCH_BASIS,
     }

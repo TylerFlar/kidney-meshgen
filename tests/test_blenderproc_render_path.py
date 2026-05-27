@@ -6,9 +6,11 @@ import numpy as np
 
 from kidney_meshgen import GeneratorConfig, generate_case
 from kidney_meshgen.blenderproc_render import (
+    _apply_lens_fluid_effects,
     _apply_rgb_sensor_effects,
     _circular_mask_and_vignette,
     _parse_k_matrix,
+    _resolve_fluid_model,
     _resolve_sensor_model,
     _sample_realism_preset,
 )
@@ -47,6 +49,45 @@ def _sensor_args(**overrides):
     }
     values.update(overrides)
     return argparse.Namespace(**values)
+
+
+def _fluid_args(**overrides):
+    values = {
+        "liquid": "volume",
+        "fluid_preset": "auto",
+        "volume_density": 0.002,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+def _short_plan():
+    return {
+        "frame_count": 3,
+        "frames": [
+            {
+                "distance_mm": 0.0,
+                "position_mm": [0.0, 0.0, 0.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+                "radius_mm": 2.0,
+            },
+            {
+                "distance_mm": 50.0,
+                "position_mm": [0.0, 0.0, 50.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+                "radius_mm": 2.3,
+            },
+            {
+                "distance_mm": 100.0,
+                "position_mm": [0.0, 0.0, 100.0],
+                "forward": [0.0, 0.0, 1.0],
+                "up": [0.0, 1.0, 0.0],
+                "radius_mm": 2.0,
+            },
+        ],
+    }
 
 
 def test_blenderproc_plan_routes_to_target_and_back(tmp_path: Path):
@@ -144,6 +185,61 @@ def test_realism_preset_sampling_is_seeded():
     assert first["light_preset"] != "baseline"
 
 
+def test_fluid_model_auto_enhances_liquid_volume_deterministically():
+    plan = _short_plan()
+    first = _resolve_fluid_model(_fluid_args(), plan, np.random.default_rng(12))
+    second = _resolve_fluid_model(_fluid_args(), plan, np.random.default_rng(12))
+    assert first == second
+    assert first["volume_enabled"] is True
+    assert first["enabled"] is True
+    assert first["preset"] == "medium"
+    assert first["debris_count"] > 0
+    assert first["bubble_count"] > 0
+    assert first["volume_density"] > 0.002
+
+
+def test_fluid_model_requires_liquid_volume():
+    model = _resolve_fluid_model(_fluid_args(liquid="film"), _short_plan(), np.random.default_rng(12))
+    assert model["volume_enabled"] is False
+    assert model["enabled"] is False
+    assert model["preset"] == "medium"
+    assert model["debris_count"] == 0
+
+
+def test_lens_fluid_effects_modify_rgb_frame():
+    image = np.full((80, 120, 3), 0.35, dtype=np.float32)
+    model = {
+        "enabled": True,
+        "lens": {
+            "enabled": True,
+            "film_strength": 0.04,
+            "film_seed": 5,
+            "film_color": [0.78, 0.91, 0.96],
+            "droplets": [
+                {
+                    "cx": 0.5,
+                    "cy": 0.5,
+                    "rx": 0.12,
+                    "ry": 0.10,
+                    "angle_rad": 0.0,
+                    "alpha": 0.35,
+                    "rim_gain": 0.4,
+                    "highlight_gain": 0.7,
+                    "highlight_dx": -0.2,
+                    "highlight_dy": -0.2,
+                    "start_frame": 0,
+                    "end_frame": 3,
+                }
+            ],
+            "occlusions": [],
+        },
+    }
+    out = _apply_lens_fluid_effects(image, model, frame_index=0)
+    assert out.shape == image.shape
+    assert not np.allclose(out, image)
+    assert float(np.max(out)) > float(np.max(image))
+
+
 def test_cli_exposes_realism_outputs_and_sensor_flags():
     parser = build_parser()
     args = parser.parse_args(
@@ -152,6 +248,10 @@ def test_cli_exposes_realism_outputs_and_sensor_flags():
             "--case-dir",
             "case",
             "--plan-only",
+            "--liquid",
+            "volume",
+            "--fluid-preset",
+            "high",
             "--normals",
             "--semantic",
             "--sensor-profile",
@@ -165,4 +265,5 @@ def test_cli_exposes_realism_outputs_and_sensor_flags():
     assert args.normals is True
     assert args.semantic is True
     assert args.sensor_profile == "wide_fov_micro"
+    assert args.fluid_preset == "high"
     assert args.render_seed == 77

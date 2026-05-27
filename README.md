@@ -147,13 +147,16 @@ Realism-oriented knobs:
 ```text
 --quality high             Higher resolution and Cycles samples
 --liquid film              Wet glossy tissue material, default
---liquid volume            Adds subtle irrigation volume scattering
+--liquid volume            Adds irrigated volume scattering
+--fluid-preset auto        Fluid/debris realism: low, medium, high, or auto
 --depth-of-field           Optional short-range camera DOF
 --depth                    Also write depth frames
 --normals                  Also write surface-normal frames
 --semantic                 Also write semantic category-ID frames
 --denoiser OPTIX|INTEL     Cycles denoising backend
 ```
+
+With `--liquid volume`, `--fluid-preset auto` resolves to `medium`. That mode adds cloudy irrigation, sparse suspended stone-dust particles, air bubbles, RGB-only lens film/droplets, and occasional partial near-lens occlusion. Use `low` or `high` to tune visibility degradation. Lens contamination is applied to RGB frames only; depth, normals, and semantic outputs stay tied to scene geometry.
 
 Endoscope sensor realism is enabled by default with `--sensor-profile flexible_ureteroscope_hd`. Profiles provide a synthetic calibrated intrinsics matrix `K`, Brown-Conrady radial/decentering distortion, circular vignette/mask, exposure and white-balance gains, rolling-shutter/motion-blur settings, and a simple shot/read/PRNU sensor-noise model. Use `--sensor-profile none` for a plain pinhole camera model.
 
@@ -295,6 +298,10 @@ The default profile is research-informed, not patient-specific. It uses Takazawa
 - Renal pelvis/calyx urothelial lining and lamina propria context: <https://basicmedicalkey.com/renal-pelvis-and-ureter-2/>
 - BlenderProc calibrated `K` intrinsics and Brown-Conrady lens distortion workflow: <https://dlr-rm.github.io/BlenderProc/examples/advanced/lens_distortion/README.html>
 - BlenderProc depth, normals, segmentation, motion blur, and rolling-shutter renderer hooks: <https://dlr-rm.github.io/BlenderProc/blenderproc.api.renderer.html>
+- RIRS irrigation/stone-dust visibility background: <https://icurology.org/DOIx.php?id=10.4111%2Ficu.20200526>
+- Endoscopic lens fogging and retained contaminant background: <https://journals.sagepub.com/doi/10.1089/end.2009.0594>
+- Lens washing/contaminant accumulation background: <https://pubmed.ncbi.nlm.nih.gov/30020986/>
+- Blender volume scatter model: <https://docs.blender.org/manual/en/latest/render/shader_nodes/shader/volume_scatter.html>
 - Brown-Conrady radial/tangential lens model background: <https://pmc.ncbi.nlm.nih.gov/articles/PMC4934233/>
 - Sensor-noise model inspiration: photon shot noise, read noise, PRNU, exposure and white-balance terms following common EMVA 1288 / computational photography image-formation approximations.
 
@@ -357,4 +364,4 @@ uv run ruff check .
 
 ## Limitations
 
-The generator does not model tissue deformation, real ureteroscope shaft mechanics, irrigation fluid physics, blood/dust/bubbles, or clinically validated patient-specific population distributions. The realism profile is research-informed anatomy for simulation, not a diagnostic or surgical-planning model.
+The generator does not model tissue deformation, real ureteroscope shaft mechanics, Navier-Stokes irrigation physics, blood physiology, or clinically validated patient-specific population distributions. The fluid/debris renderer is a visual approximation for simulation data, not a surgical fluid simulation. The realism profile is research-informed anatomy for simulation, not a diagnostic or surgical-planning model.

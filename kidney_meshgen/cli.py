@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from .blenderproc_render import LIGHT_PRESETS, MATERIAL_PRESETS, SENSOR_PROFILES
+from .blenderproc_render import FLUID_PRESETS, LIGHT_PRESETS, MATERIAL_PRESETS, SENSOR_PROFILES
 from .config import GeneratorConfig
 from .generator import generate_case
 from .render_path import RenderPathOptions, write_blenderproc_camera_plan
@@ -154,6 +154,8 @@ def cmd_render_blenderproc(args: argparse.Namespace) -> None:
         str(out_dir),
         "--liquid",
         args.liquid,
+        "--fluid-preset",
+        args.fluid_preset,
         "--width",
         str(width),
         "--height",
@@ -255,7 +257,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--grid", type=int, help="Target sample count along the longest marching-cubes axis. 192-240 is a good high-resolution range.")
     gen.add_argument("--min-grid-axis", type=int, help="Minimum sample count along shorter axes.")
     gen.add_argument("--stones", type=int, help="Number of stones to place.")
-    gen.add_argument("--anatomy-profile", choices=["takazawa", "basic", "legacy"], help="Anatomy realism profile.")
+    gen.add_argument("--anatomy-profile", choices=["takazawa", "basic"], help="Anatomy realism profile.")
     gen.add_argument("--pelvis-type", choices=["random", "single", "divided", "type_i", "type_ii"], help="Pelvis morphology family.")
     gen.add_argument("--pelvicalyceal-class", choices=["random", "type_i", "type_ii"], help="Takazawa Type I/II selector.")
     gen.add_argument("--type-i-subtype", choices=["random", "ia", "ib", "ic"], help="Type I pelvis width subtype.")
@@ -280,7 +282,13 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--blenderproc", type=str, default="blenderproc", help="Name or path of the blenderproc executable.")
     render.add_argument("--plan-only", action="store_true", help="Only write camera_poses.json/csv; do not invoke BlenderProc.")
     render.add_argument("--include-stones", action="store_true", help="Render stone meshes. Off by default.")
-    render.add_argument("--liquid", choices=["off", "film", "volume"], default="film", help="Wet material/liquid treatment.")
+    render.add_argument("--liquid", choices=["film", "volume"], default="film", help="Wet material/liquid treatment.")
+    render.add_argument(
+        "--fluid-preset",
+        choices=["auto", *sorted(FLUID_PRESETS)],
+        default="auto",
+        help="Fluid/debris realism for --liquid volume; auto resolves to medium.",
+    )
     render.add_argument("--traversal", choices=["dfs", "pelvis"], default="dfs", help="Camera path traversal when --target-node is not set.")
     render.add_argument("--target-node", type=str, help="Fly from entry to a specific graph node, then reverse back to entry.")
     render.add_argument("--fps", type=float, default=30.0, help="Camera frame rate for pose timestamps.")
