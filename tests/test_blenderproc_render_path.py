@@ -6,6 +6,7 @@ import numpy as np
 
 from kidney_meshgen import GeneratorConfig, generate_case
 from kidney_meshgen.blenderproc_render import (
+    _apply_frame_subset,
     _apply_lens_fluid_effects,
     _apply_plan_temporal_constraints,
     _apply_rgb_sensor_effects,
@@ -15,6 +16,7 @@ from kidney_meshgen.blenderproc_render import (
     _resolve_sensor_model,
     _sample_realism_preset,
 )
+from kidney_meshgen.blenderproc_render import build_parser as build_render_parser
 from kidney_meshgen.cli import build_parser
 from kidney_meshgen.dataset import build_camera_intrinsics, split_frame_indices, write_dataset_convention_files
 from kidney_meshgen.render_path import RenderPathOptions, build_blenderproc_camera_plan, write_blenderproc_camera_plan
@@ -417,3 +419,43 @@ def test_cli_exposes_realism_outputs_and_sensor_flags():
     assert args.render_seed == 77
     assert args.split_ratios == "0.7,0.2,0.1"
     assert args.split_seed == 5
+
+
+# --- NEARLIGHT-BASELINE-OBSERVABILITY-001 levers ---------------------------- #
+def test_apply_frame_subset_renumbers_and_maps():
+    plan = {
+        "frame_count": 5,
+        "frames": [
+            {"frame_index": i, "cam2world_opengl": [[1, 0, 0, i], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]}
+            for i in range(5)
+        ],
+    }
+    new_plan, subset_map = _apply_frame_subset(plan, [3, 1])  # unsorted input
+    assert new_plan["frame_count"] == 2
+    # renumbered 0..K-1 in ascending source order; files/keyframes stay consistent
+    assert [f["frame_index"] for f in new_plan["frames"]] == [0, 1]
+    assert [f["source_frame_index"] for f in new_plan["frames"]] == [1, 3]
+    # poses follow the kept frames (translation x == source index here)
+    assert new_plan["frames"][0]["cam2world_opengl"][0][3] == 1
+    assert new_plan["frames"][1]["cam2world_opengl"][0][3] == 3
+    assert subset_map == [
+        {"rendered_index": 0, "source_frame_index": 1},
+        {"rendered_index": 1, "source_frame_index": 3},
+    ]
+
+
+def test_render_parser_exposes_nearlight_levers():
+    parser = build_render_parser()
+    args = parser.parse_args([
+        "--case-dir", "c", "--pose-file", "p", "--out", "o",
+        "--linear-exr", "--light-baseline-mm", "3.0",
+        "--frame-indices-file", "f.json",
+    ])
+    assert args.linear_exr is True
+    assert args.light_baseline_mm == 3.0
+    assert args.frame_indices_file == "f.json"
+    # defaults keep the validated path untouched
+    base = build_render_parser().parse_args(["--case-dir", "c", "--pose-file", "p", "--out", "o"])
+    assert base.linear_exr is False
+    assert base.light_baseline_mm == 0.0
+    assert base.disable_fill_light is False

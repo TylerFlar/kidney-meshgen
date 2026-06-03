@@ -1078,8 +1078,31 @@ def _add_suspended_debris_and_bubbles(
         )
 
 
-def _configure_color_management(bpy) -> None:
+def _configure_color_management(bpy, linear: bool = False) -> None:
+    """Configure Blender view-transform color management.
+
+    Default (``linear=False``) keeps the validated slam_eval look: AgX filmic
+    tone-map + Medium High Contrast + -0.25 EV. With ``linear=True`` the view
+    transform is set to ``Raw`` (no tone-map), ``look='None'``, exposure 0 and
+    gamma 1 -- ported from ``scripts/nearlight_probe_render.py`` -- so the stored
+    radiance is linear and the near-light inverse-square cue is recoverable
+    (NEARLIGHT-BASELINE-OBSERVABILITY-001 STEP-A).
+    """
     settings = bpy.context.scene.view_settings
+    if linear:
+        for transform in ("Raw", "Standard"):
+            try:
+                settings.view_transform = transform
+                break
+            except TypeError:
+                continue
+        try:
+            settings.look = "None"
+        except TypeError:
+            pass
+        settings.exposure = 0.0
+        settings.gamma = 1.0
+        return
     for transform in ("AgX", "Filmic", "Standard"):
         try:
             settings.view_transform = transform
@@ -1193,25 +1216,121 @@ def _create_camera_lights(
     return spot, point
 
 
-def _keyframe_lights(bpy, plan: Dict, spot, point) -> None:
+def _keyframe_lights(bpy, plan: Dict, spot, point, light_baseline_mm: float = 0.0,
+                     disable_fill: bool = False) -> None:
     import mathutils
 
+    # A known nonzero light->camera baseline ``b`` offsets the spot along the
+    # optical axis, behind the sensor / away from the tissue. In the OpenGL
+    # camera frame the view direction is R@[0,0,-1], so "behind the sensor" is
+    # +Z_cam = R@[0,0,+1]. This is the term that breaks scale homogeneity in the
+    # near-light cue and makes metric lambda observable
+    # (NEARLIGHT-BASELINE-OBSERVABILITY-001). b=0 reproduces the co-located spot.
+    b = float(light_baseline_mm)
     for frame in plan["frames"]:
         frame_idx = int(frame["frame_index"])
         mat = _matrix_from_frame(frame)
         rot = mathutils.Matrix(mat[:3, :3]).to_euler()
-        spot.location = mat[:3, 3]
+        axis_offset = mat[:3, :3] @ np.asarray([0.0, 0.0, 1.0], dtype=float) * b
+        spot.location = mat[:3, 3] + axis_offset
         spot.rotation_euler = rot
         spot.keyframe_insert(data_path="location", frame=frame_idx)
         spot.keyframe_insert(data_path="rotation_euler", frame=frame_idx)
+
+        if disable_fill:
+            # Single near-light: the validated -2.0 inverse-square physics was on
+            # one co-located point light; disabling the offset fill makes the
+            # render's light model match the solver's (labeled generator_probe).
+            point.location = mat[:3, 3] + axis_offset
+            point.keyframe_insert(data_path="location", frame=frame_idx)
+            continue
 
         offset = mat[:3, :3] @ np.asarray([0.9, -0.65, -0.25], dtype=float)
         point.location = mat[:3, 3] + offset
         point.keyframe_insert(data_path="location", frame=frame_idx)
 
 
+def _rotation_align_z(target: np.ndarray) -> np.ndarray:
+    """3x3 rotation mapping local +Z to the unit vector ``target`` (Rodrigues)."""
+    z = np.array([0.0, 0.0, 1.0])
+    t = np.asarray(target, dtype=float)
+    n = np.linalg.norm(t)
+    if n < 1e-12:
+        return np.eye(3)
+    t = t / n
+    v = np.cross(z, t)
+    c = float(np.dot(z, t))
+    s = float(np.linalg.norm(v))
+    if s < 1e-12:
+        return np.eye(3) if c > 0 else np.diag([1.0, -1.0, -1.0])
+    vx = np.array([[0.0, -v[2], v[1]], [v[2], 0.0, -v[0]], [-v[1], v[0], 0.0]])
+    return np.eye(3) + vx + vx @ vx * ((1.0 - c) / (s * s))
+
+
+def _add_instrument_anchor(bpy, plan: Dict, diameter_mm: float,
+                           offset_cam: Tuple[float, float, float],
+                           axis_cam: Tuple[float, float, float] = (1.0, 0.0, -0.35),
+                           length_mm: float = 16.0):
+    """Add a known-diameter cylindrical instrument shaft rigidly fixed in the camera
+    frame (keyframed per frame, exactly like :func:`_keyframe_lights`) -- a
+    French-gauge working-channel / sheath that crosses the FOV.
+
+    INSTRUMENT-LENGTH-ANCHOR-001: the cylinder's known physical *diameter* is the
+    only metric prior the GT-free scale solve consumes; its 3D geometry is
+    reconstructed from the image silhouette. category_id = 2 ("instrument"); the
+    material is flat and non-emissive so the shaft never perturbs the near-light
+    photometric cue (this route is purely geometric / GI-immune). The shaft is
+    placed at a fixed camera-frame FOV-edge offset so it appears static in-frame
+    like a real scope instrument. Returns the created object (None if disabled).
+    """
+    import mathutils
+
+    if float(diameter_mm) <= 0.0:
+        return None
+    radius = 0.5 * float(diameter_mm)
+    bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=float(length_mm),
+                                        vertices=48, location=(0.0, 0.0, 0.0))
+    obj = bpy.context.active_object
+    obj.name = "instrument_anchor"
+
+    mat = bpy.data.materials.new("instrument_anchor_mat")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf is not None:
+        bsdf.inputs["Base Color"].default_value = (0.55, 0.55, 0.58, 1.0)
+        for name, value in (("Roughness", 0.6), ("Metallic", 0.0),
+                            ("Specular IOR Level", 0.25), ("Specular", 0.25)):
+            if name in bsdf.inputs:
+                bsdf.inputs[name].default_value = value
+    obj.data.materials.clear()
+    obj.data.materials.append(mat)
+    obj["category_id"] = int(SEMANTIC_LABELS["instrument"])
+
+    r_local = _rotation_align_z(np.asarray(axis_cam, dtype=float))
+    off = np.asarray(offset_cam, dtype=float)
+    for frame in plan["frames"]:
+        frame_idx = int(frame["frame_index"])
+        m = _matrix_from_frame(frame)
+        rot = m[:3, :3]
+        world_pos = m[:3, 3] + rot @ off
+        eul = mathutils.Matrix((rot @ r_local).tolist()).to_euler()
+        obj.location = mathutils.Vector(world_pos.tolist())
+        obj.rotation_euler = eul
+        obj.keyframe_insert(data_path="location", frame=frame_idx)
+        obj.keyframe_insert(data_path="rotation_euler", frame=frame_idx)
+    return obj
+
+
 def _configure_renderer(bproc, bpy, args: argparse.Namespace) -> None:
-    bproc.renderer.set_output_format(file_format="PNG", color_depth=int(args.color_depth), enable_transparency=False)
+    if bool(getattr(args, "linear_exr", False)):
+        # Linear radiance: 32-bit OPEN_EXR so the returned color data is the raw
+        # un-tonemapped, un-clamped scene radiance (matches the probe render path).
+        try:
+            bproc.renderer.set_output_format(file_format="OPEN_EXR", color_depth="32", enable_transparency=False)
+        except Exception:
+            bproc.renderer.set_output_format(file_format="OPEN_EXR", color_depth="32")
+    else:
+        bproc.renderer.set_output_format(file_format="PNG", color_depth=int(args.color_depth), enable_transparency=False)
     bproc.renderer.set_max_amount_of_samples(int(args.samples))
     bproc.renderer.set_noise_threshold(float(args.noise_threshold))
     bproc.renderer.set_denoiser(None if str(args.denoiser).lower() == "none" else str(args.denoiser).upper())
@@ -1268,6 +1387,44 @@ def _apply_plan_temporal_constraints(sensor_model: Dict[str, Any], plan: Dict) -
 
 def _frame_path(out_dir: Path, prefix: str, index: int, suffix: str) -> Path:
     return out_dir / f"{prefix}{index:06d}.{suffix}"
+
+
+def _apply_frame_subset(plan: Dict, indices: List[int]) -> Tuple[Dict, List[Dict[str, int]]]:
+    """Keep only ``indices`` (by source frame_index), renumber to 0..K-1.
+
+    Files are written by enumeration index and ``frames.json`` / Blender light
+    keyframes key off ``frame_index``; renumbering the kept frames to a contiguous
+    0..K-1 range keeps all three consistent for a subset render. Returns the
+    filtered plan plus a ``subset_map`` (rendered_index -> source frame_index).
+    """
+    wanted = set(int(i) for i in indices)
+    kept = [f for f in plan["frames"] if int(f["frame_index"]) in wanted]
+    kept.sort(key=lambda f: int(f["frame_index"]))
+    subset_map: List[Dict[str, int]] = []
+    new_frames = []
+    for new_idx, frame in enumerate(kept):
+        src_idx = int(frame["frame_index"])
+        nf = dict(frame)
+        nf["frame_index"] = new_idx
+        nf["source_frame_index"] = src_idx
+        new_frames.append(nf)
+        subset_map.append({"rendered_index": new_idx, "source_frame_index": src_idx})
+    new_plan = dict(plan)
+    new_plan["frames"] = new_frames
+    new_plan["frame_count"] = len(new_frames)
+    new_plan["subset_of"] = int(plan.get("frame_count", len(plan.get("frames", []))))
+    return new_plan, subset_map
+
+
+def _write_linear_rgb_frames(frames: Sequence[np.ndarray], out_dir: Path) -> None:
+    """Write linear scene radiance as float32 ``rgb/frame_NNNNNN.npy`` (no
+    tone-map, no sensor effects, no clamp)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for idx, frame in enumerate(frames):
+        arr = np.asarray(frame, dtype=np.float32)
+        if arr.ndim == 3 and arr.shape[-1] > 3:
+            arr = arr[..., :3]
+        np.save(_frame_path(out_dir, "frame_", idx, "npy"), arr)
 
 
 def _as_float_image(image: np.ndarray) -> np.ndarray:
@@ -1593,7 +1750,10 @@ def _render_and_write_outputs(
     data = _apply_lens_distortion_to_data(bproc, data, lens_mapping)
     if "colors" not in data:
         raise RuntimeError("BlenderProc render did not return RGB color frames.")
-    _write_rgb_frames(data["colors"], rgb_dir, sensor_model, fluid_model, int(args.color_depth), rng)
+    if bool(getattr(args, "linear_exr", False)):
+        _write_linear_rgb_frames(data["colors"], rgb_dir)
+    else:
+        _write_rgb_frames(data["colors"], rgb_dir, sensor_model, fluid_model, int(args.color_depth), rng)
     if args.enable_depth:
         if "depth" not in data:
             raise RuntimeError("Depth output was requested, but BlenderProc did not return depth frames.")
@@ -1656,6 +1816,53 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--split-ratios", default="0.8,0.1,0.1")
     parser.add_argument("--split-seed", type=int)
     parser.add_argument("--no-splits", action="store_true")
+    # --- NEARLIGHT-BASELINE-OBSERVABILITY-001 levers --------------------------- #
+    parser.add_argument(
+        "--linear-exr", action="store_true",
+        help="Render linear scene radiance (Raw view transform, 32-bit OPEN_EXR, "
+             "float32 .npy RGB). Forces sensor effects, motion blur and rolling "
+             "shutter OFF so the near-light inverse-square cue is recoverable.",
+    )
+    parser.add_argument(
+        "--light-baseline-mm", type=float, default=0.0,
+        help="Known light->camera baseline b (mm): offsets the spot light along "
+             "the optical axis, behind the sensor. 0 = co-located (control).",
+    )
+    parser.add_argument(
+        "--disable-fill-light", action="store_true",
+        help="Drop the offset POINT fill so the render uses a single near-light "
+             "(matches the solver's light model; auto-enabled with --linear-exr).",
+    )
+    parser.add_argument(
+        "--frame-indices-file",
+        help="Optional JSON list of frame_index ints; render only those frames "
+             "(renumbered 0..K-1, with a subset_map.json sidecar). Cuts render "
+             "cost when only the eval windows are needed.",
+    )
+    # --- INSTRUMENT-LENGTH-ANCHOR-001 levers ----------------------------------- #
+    parser.add_argument(
+        "--instrument-fr-mm", type=float, default=0.0,
+        help="Add a known-DIAMETER (mm) cylindrical instrument shaft rigidly fixed "
+             "in the camera frame, crossing the FOV (category_id=2, semantic id 2). "
+             "0 = no instrument. e.g. 3.0 (~9 Fr wide channel/sheath), 0.365 (thin "
+             "fiber). The known width is the only metric prior for the GT-free scale "
+             "solve.",
+    )
+    parser.add_argument(
+        "--instrument-offset", default="0.0,-2.0,-7.0",
+        help="Camera-frame x,y,z offset (mm) of the instrument-shaft centre (OpenGL "
+             "cam: +X right, +Y up, -Z forward). Default sits below the optical axis, "
+             "~7 mm ahead, crossing the lower FOV like a real scope instrument.",
+    )
+    parser.add_argument(
+        "--instrument-axis", default="1.0,0.0,-0.35",
+        help="Camera-frame shaft-axis direction (need not be unit); default runs "
+             "left-right across the lower frame with the near end slightly closer.",
+    )
+    parser.add_argument(
+        "--instrument-length-mm", type=float, default=16.0,
+        help="Instrument shaft length (mm).",
+    )
     return parser
 
 
@@ -1672,6 +1879,25 @@ def main(argv: Optional[List[str]] = None) -> None:
     manifest = _load_json(case_dir / "scene_manifest.json")
     plan = _load_json(Path(args.pose_file))
     files = manifest.get("files", {})
+
+    # --- NEARLIGHT levers: subset selection + linear-radiance overrides ------- #
+    subset_map: Optional[List[Dict[str, int]]] = None
+    if getattr(args, "frame_indices_file", None):
+        wanted = _load_json(Path(args.frame_indices_file))
+        wanted = wanted.get("frame_indices", wanted) if isinstance(wanted, dict) else wanted
+        plan, subset_map = _apply_frame_subset(plan, [int(i) for i in wanted])
+        if not plan["frames"]:
+            raise RuntimeError("--frame-indices-file selected zero frames from the plan.")
+    if bool(args.linear_exr):
+        # Strip every non-invertible step between scene radiance and stored pixels.
+        args.no_sensor_effects = True
+        args.disable_fill_light = True
+        args.fill_light_energy = 0.0
+        args.motion_blur_length = 0.0
+        args.rolling_shutter_type = "NONE"
+        if not bool(args.enable_depth):
+            args.enable_depth = True  # the solver/STEP-A need GT planar depth
+
     render_seed = int(args.render_seed) if args.render_seed is not None else int(np.random.SeedSequence().entropy)
     rng = np.random.default_rng(render_seed)
     sensor_model = _resolve_sensor_model(
@@ -1685,7 +1911,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     fluid_model = _resolve_fluid_model(args, plan, rng)
 
     bproc.init()
-    _configure_color_management(bpy)
+    _configure_color_management(bpy, linear=bool(args.linear_exr))
 
     lumen_path = _first_existing(case_dir, [files.get("lumen_inner_obj"), files.get("lumen_inner_glb")])
     if lumen_path is None or lumen_path.suffix.lower() != ".obj":
@@ -1739,7 +1965,14 @@ def main(argv: Optional[List[str]] = None) -> None:
         float(args.spot_angle_degrees),
         realism["light"],
     )
-    _keyframe_lights(bpy, plan, spot, point)
+    _keyframe_lights(bpy, plan, spot, point,
+                     light_baseline_mm=float(args.light_baseline_mm),
+                     disable_fill=bool(args.disable_fill_light))
+    if float(getattr(args, "instrument_fr_mm", 0.0)) > 0.0:
+        off = tuple(float(x) for x in str(args.instrument_offset).split(","))
+        axis = tuple(float(x) for x in str(args.instrument_axis).split(","))
+        _add_instrument_anchor(bpy, plan, float(args.instrument_fr_mm), off,
+                               axis_cam=axis, length_mm=float(args.instrument_length_mm))
 
     output_paths = _render_and_write_outputs(bproc, args, out_dir, rgb_dir, sensor_model, fluid_model, lens_mapping, rng)
     mask_path = _write_sensor_mask(out_dir, sensor_model, int(args.width), int(args.height))
@@ -1773,8 +2006,34 @@ def main(argv: Optional[List[str]] = None) -> None:
     )
     output_paths.update(dataset_paths)
 
+    # Linear renders store RGB as float32 .npy; rewrite frames.json so the rgb
+    # modality path/suffix points at the .npy and record the subset map.
+    if bool(args.linear_exr):
+        frames_json_path = out_dir / "frames.json"
+        if frames_json_path.exists():
+            fj = _load_json(frames_json_path)
+            fj.setdefault("modality_formats", {})["rgb"] = "float32 npy"
+            for fr in fj.get("frames", []):
+                rgb_rel = fr.get("files", {}).get("rgb")
+                if isinstance(rgb_rel, str) and rgb_rel.endswith(".png"):
+                    fr["files"]["rgb"] = rgb_rel[:-4] + ".npy"
+            fj["rgb_is_linear_radiance"] = True
+            with open(frames_json_path, "w", encoding="utf-8") as f:
+                json.dump(fj, f, indent=2)
+    if subset_map is not None:
+        with open(out_dir / "subset_map.json", "w", encoding="utf-8") as f:
+            json.dump({"subset_map": subset_map, "count": len(subset_map)}, f, indent=2)
+
     metadata = {
         "schema": "kidney_meshgen_blenderproc_render_v0.2",
+        "nearlight_linear_exr": bool(args.linear_exr),
+        "nearlight_light_baseline_mm_b": float(args.light_baseline_mm),
+        "nearlight_fill_light_disabled": bool(args.disable_fill_light),
+        "nearlight_rgb_is_linear_radiance": bool(args.linear_exr),
+        "nearlight_frame_subset": None if subset_map is None else len(subset_map),
+        "instrument_anchor_diameter_mm": float(getattr(args, "instrument_fr_mm", 0.0)),
+        "instrument_anchor_offset_cam_mm": str(getattr(args, "instrument_offset", "")),
+        "instrument_anchor_axis_cam": str(getattr(args, "instrument_axis", "")),
         "case_dir": str(case_dir),
         "pose_file": str(Path(args.pose_file)),
         "outputs": output_paths,

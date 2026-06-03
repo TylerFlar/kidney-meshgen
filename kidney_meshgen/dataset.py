@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 SEMANTIC_LABELS: Dict[str, int] = {
     "background": 0,
     "lumen_mucosa": 1,
+    "instrument": 2,  # INSTRUMENT-LENGTH-ANCHOR-001: known-width in-frame shaft
     "stone": 1001,
     "suspended_stone_dust": 1002,
     "irrigation_air_bubble": 1003,
