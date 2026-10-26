@@ -1,5 +1,9 @@
 # kidney-meshgen
 
+> **Status:** paused, last worked on in June 2026. Archived on GitHub; unarchive it to pick it up again.
+>
+> Part of my endoscopic-navigation experiments at UC San Diego's ARCLab: [all the repos](https://github.com/search?q=user%3ATylerFlar+topic%3Aucsd-arclab&type=repositories).
+
 Procedural renal collecting-system mesh generator for **real-time flexible ureteroscopy / RIRS navigation and direct-control simulation**.
 
 The core generator is intentionally lean. It focuses on the assets needed to build and test a real-time simulator, while higher-cost offline rendering tools such as BlenderProc stay behind optional extras.
